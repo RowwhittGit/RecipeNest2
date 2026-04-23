@@ -1,0 +1,2233 @@
+const express = require("express");
+const cors = require("cors");
+const helmet = require("helmet");
+const path = require("path");
+
+const { NODE_ENV, CLIENT_URL } = require("./config/config");
+const connectDB = require("./config/database");
+const authRoutes = require("./routes/auth.routes");
+const profileRoutes = require("./routes/profile.routes");
+const recipeRoutes = require("./routes/recipe.routes");
+const socialRoutes = require("./routes/social.routes");
+const adminRoutes = require("./routes/admin.routes");
+const analyticsRoutes = require("./routes/analytics.routes");
+const searchRoutes = require("./routes/search.routes");
+const notificationRoutes = require("./routes/notification.routes");
+const sanitise = require("./middleware/sanitise");
+const { generalRateLimiter } = require("./middleware/rateLimiter");
+const errorHandler = require("./middleware/errorHandler");
+
+const app = express();
+app.use(generalRateLimiter);
+
+// Security + CORS middleware
+app.use(helmet());
+app.use(cors({
+  origin: CLIENT_URL,
+  credentials: true,
+}));
+
+// Body parsing middleware
+app.use(express.json({ limit: "10kb" }));
+app.use(express.urlencoded({ extended: true }));
+app.use(...sanitise);
+
+// Request logging (development only)
+if (NODE_ENV === "development") {
+  app.use((req, res, next) => {
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+    next();
+  });
+}
+
+// Database connection
+if (NODE_ENV !== "test") {
+  connectDB();
+}
+
+// Health check - to verify server is running
+app.get("/", (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: "RecipeNest Backend API",
+    version: "2.0.0",
+    status: "running",
+  });
+});
+
+// API routes
+app.use("/api/auth", authRoutes);
+app.use("/api/profiles", profileRoutes);
+app.use("/api/recipes", recipeRoutes);
+app.use("/api/social", socialRoutes);
+app.use("/api/admin", adminRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/search", searchRoutes);
+app.use("/api/notifications", notificationRoutes);
+
+// Static files for uploads
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+
+// 404 handler - when route is not found
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.originalUrl}`,
+    code: "NOT_FOUND",
+  });
+});
+
+// Global error handler
+app.use(errorHandler);
+
+module.exports = app;
+const express = require("express");
+const controller = require("../controllers/admin.controller");
+const verifyToken = require("../middleware/auth");
+const verifyAdmin = require("../middleware/verifyAdmin");
+
+const router = express.Router();
+
+router.use(verifyToken, verifyAdmin);
+
+router.get("/users", controller.listUsers);
+router.get("/users/:userId", controller.getUserById);
+router.patch("/users/:userId/suspend", controller.suspendUser);
+router.patch("/users/:userId/reinstate", controller.reinstateUser);
+router.delete("/users/:userId", controller.deleteUser);
+
+router.get("/content", controller.listContent);
+router.patch("/content/:contentId/approve", controller.approveContent);
+router.patch("/content/:contentId/reject", controller.rejectContent);
+router.delete("/content/:contentId", controller.deleteContent);
+
+router.get("/audit-log", controller.auditLog);
+router.get("/dashboard-stats", controller.dashboardStats);
+router.get("/disputes", controller.listDisputes);
+router.patch("/disputes/:disputeId/resolve", controller.resolveDispute);
+
+module.exports = router;
+const express = require("express");
+const controller = require("../controllers/analytics.controller");
+const verifyToken = require("../middleware/auth");
+
+const router = express.Router();
+
+// Professional analytics (requires isProfessional = true)
+router.get("/profile", verifyToken, controller.profileAnalytics);
+router.get("/recipe/:recipeId", verifyToken, controller.recipeAnalytics);
+
+module.exports = router;
+const express = require("express");
+const controller = require("../controllers/auth.controller");
+const verifyToken = require("../middleware/auth");
+const { authRateLimiter } = require("../middleware/rateLimiter");
+
+const router = express.Router();
+
+router.post("/register", authRateLimiter, controller.register);
+router.post("/login", authRateLimiter, controller.login);
+router.post("/google", authRateLimiter, controller.googleLogin);
+router.post("/refresh-token", controller.refreshAccessToken);
+router.post("/logout", verifyToken, controller.logout);
+router.post("/forgot-password", authRateLimiter, controller.forgotPassword);
+router.post("/reset-password/:token", authRateLimiter, controller.resetPassword);
+router.get("/verify-email/:token", controller.verifyEmail);
+router.get("/me", verifyToken, controller.me);
+router.delete("/me", verifyToken, controller.deleteMe);
+router.patch("/settings", verifyToken, controller.updateSettings);
+
+module.exports = router;
+const express = require("express");
+const controller = require("../controllers/notification.controller");
+const verifyToken = require("../middleware/auth");
+
+const router = express.Router();
+
+router.use(verifyToken);
+
+router.get("/", controller.listNotifications);
+router.patch("/:id/read", controller.markRead);
+router.patch("/read-all", controller.markAllRead);
+
+module.exports = router;
+const express = require("express");
+const controller = require("../controllers/profile.controller");
+const verifyToken = require("../middleware/auth");
+const optionalAuth = require("../middleware/optionalAuth");
+const { avatarUpload } = require("../middleware/upload");
+
+const router = express.Router();
+
+router.get("/me", verifyToken, controller.getMyProfile);
+router.put("/me", verifyToken, controller.updateProfile);
+router.post("/me/avatar", verifyToken, avatarUpload, controller.uploadAvatar);
+router.get("/:userId", optionalAuth, controller.getPublicProfile);
+
+module.exports = router;
+const express = require("express");
+const controller = require("../controllers/recipe.controller");
+const verifyToken = require("../middleware/auth");
+const optionalAuth = require("../middleware/optionalAuth");
+const { recipeImageUpload } = require("../middleware/upload");
+
+const router = express.Router();
+
+// Public (anyone can see the teaser feed)
+router.get("/", optionalAuth, controller.listRecipes);
+router.get("/feed", optionalAuth, controller.getPersonalizedFeed);
+router.get("/user/:userId", optionalAuth, controller.getRecipesByUser);
+
+// Authenticated — Must be logged in to view full details or share
+router.get("/:recipeId", verifyToken, controller.getRecipeById);
+router.post("/:recipeId/share", verifyToken, controller.shareRecipe);
+
+// Authenticated — any user can post
+router.get("/my/all", verifyToken, controller.myRecipes);
+router.post("/", verifyToken, controller.createRecipe);
+router.put("/:recipeId", verifyToken, controller.updateRecipe);
+router.delete("/:recipeId", verifyToken, controller.deleteRecipe);
+
+// Image uploads — owner only (checked inside controller)
+router.post("/:recipeId/images/hero", verifyToken, recipeImageUpload, controller.uploadHeroImage);
+router.post("/:recipeId/images/steps", verifyToken, recipeImageUpload, controller.uploadStepImages);
+router.post("/:recipeId/images/result", verifyToken, recipeImageUpload, controller.uploadResultImage);
+router.delete("/:recipeId/images/:slot", verifyToken, controller.deleteImageSlot);
+
+module.exports = router;
+const express = require("express");
+const controller = require("../controllers/search.controller");
+
+const router = express.Router();
+
+router.get("/", controller.search);
+router.get("/categories", controller.listCategories);
+
+module.exports = router;
+const express = require("express");
+const controller = require("../controllers/social.controller");
+const verifyToken = require("../middleware/auth");
+
+const router = express.Router();
+
+// Follow
+router.post("/follow/:userId", verifyToken, controller.followUser);
+router.delete("/unfollow/:userId", verifyToken, controller.unfollowUser);
+router.patch("/follow-requests/:requestId/accept", verifyToken, controller.acceptFollowRequest);
+router.patch("/follow-requests/:requestId/reject", verifyToken, controller.rejectFollowRequest);
+router.get("/follow-requests", verifyToken, controller.getPendingRequests);
+router.get("/followers/:userId", controller.getFollowers);
+router.get("/following/:userId", controller.getFollowing);
+
+// Like
+router.post("/like/:recipeId", verifyToken, controller.likeRecipe);
+router.delete("/unlike/:recipeId", verifyToken, controller.unlikeRecipe);
+router.post("/like-comment/:commentId", verifyToken, controller.likeComment);
+router.delete("/unlike-comment/:commentId", verifyToken, controller.unlikeComment);
+
+// Comment
+router.post("/comments/:recipeId", verifyToken, controller.addComment);
+router.get("/comments/:recipeId", controller.getComments);
+router.delete("/comments/:commentId", verifyToken, controller.deleteComment);
+
+// Save / Bookmark
+router.post("/save/:recipeId", verifyToken, controller.saveRecipe);
+router.delete("/unsave/:recipeId", verifyToken, controller.unsaveRecipe);
+router.get("/saved", verifyToken, controller.getSavedRecipes);
+router.post("/dispute/:recipeId", verifyToken, controller.fileDispute);
+router.post("/dispute-comment/:commentId", verifyToken, controller.fileCommentDispute);
+
+module.exports = router;
+const User = require("../models/user.model");
+const Recipe = require("../models/recipe.model");
+const AuditLog = require("../models/auditLog.model");
+const { writeAuditLog } = require("../services/audit.service");
+const { sendModerationEmail } = require("../services/email.service");
+const { successResponse, errorResponse } = require("../utils/apiResponse");
+
+const listUsers = async (req, res, next) => {
+  try {
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+    const q = (req.query.q || "").trim();
+    const status = req.query.status;
+
+    const query = {};
+    if (q) query.$or = [{ firstName: { $regex: q, $options: "i" } }, { lastName: { $regex: q, $options: "i" } }, { email: { $regex: q, $options: "i" } }];
+    if (status === "active") query.isActive = true;
+    if (status === "suspended") query.isActive = false;
+
+    const total = await User.countDocuments(query);
+    const users = await User.find(query).select("-passwordHash").sort("-createdAt").skip(skip).limit(limit);
+    return successResponse(
+      res,
+      200,
+      users,
+      { page, limit, total, pages: Math.ceil(total / limit) },
+      "Users list"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getUserById = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId).select("-passwordHash");
+    if (!user) return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    return successResponse(res, 200, user, null, "User detail");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const suspendUser = async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.userId, { isActive: false }, { new: true });
+    if (!user) return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    await writeAuditLog({
+      adminId: req.user.userId,
+      action: "SUSPEND_USER",
+      targetType: "User",
+      targetId: user._id,
+      details: "Admin suspended user account",
+    });
+    return successResponse(res, 200, user, null, "User suspended");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const reinstateUser = async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndUpdate(req.params.userId, { isActive: true }, { new: true });
+    if (!user) return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    await writeAuditLog({
+      adminId: req.user.userId,
+      action: "REINSTATE_USER",
+      targetType: "User",
+      targetId: user._id,
+      details: "Admin reinstated user account",
+    });
+    return successResponse(res, 200, user, null, "User reinstated");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteUser = async (req, res, next) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.userId);
+    if (!user) return errorResponse(res, 404, "User not found", "NOT_FOUND");
+
+
+    await Recipe.deleteMany({ authorId: user._id });
+
+    await writeAuditLog({
+      adminId: req.user.userId,
+      action: "DELETE_USER",
+      targetType: "User",
+      targetId: user._id,
+      details: "Admin permanently deleted user and related data",
+    });
+    return successResponse(res, 200, null, null, "User deleted");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listContent = async (req, res, next) => {
+  try {
+    const status = req.query.status || "all";
+    const query = {};
+    if (status === "pending") query.status = "pending";
+    if (status === "flagged") query.isFlagged = true;
+
+    const content = await Recipe.find(query)
+      .sort("-updatedAt")
+      .populate("authorId", "firstName lastName username");
+    return successResponse(res, 200, content, null, "Moderation content");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const approveContent = async (req, res, next) => {
+  try {
+    const recipe = await Recipe.findByIdAndUpdate(
+      req.params.contentId,
+      { status: "published", isFlagged: false },
+      { new: true }
+    );
+    if (!recipe) return errorResponse(res, 404, "Content not found", "NOT_FOUND");
+    await writeAuditLog({
+      adminId: req.user.userId,
+      action: "APPROVE_RECIPE",
+      targetType: "Recipe",
+      targetId: recipe._id,
+      details: "Admin approved content",
+    });
+    return successResponse(res, 200, recipe, null, "Content approved");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const rejectContent = async (req, res, next) => {
+  try {
+    const recipe = await Recipe.findByIdAndUpdate(
+      req.params.contentId,
+      { status: "rejected", isFlagged: false },
+      { new: true }
+    ).populate("authorId", "firstName lastName email");
+
+    if (!recipe) return errorResponse(res, 404, "Content not found", "NOT_FOUND");
+
+    await writeAuditLog({
+      adminId: req.user.userId,
+      action: "REJECT_RECIPE",
+      targetType: "Recipe",
+      targetId: recipe._id,
+      details: "Admin rejected content",
+    });
+
+    if (req.body.notifyAuthor && recipe.authorId) {
+      await sendModerationEmail(recipe.authorId, "rejected");
+    }
+    return successResponse(res, 200, recipe, null, "Content rejected");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteContent = async (req, res, next) => {
+  try {
+    const recipe = await Recipe.findByIdAndDelete(req.params.contentId);
+    if (!recipe) return errorResponse(res, 404, "Content not found", "NOT_FOUND");
+    await writeAuditLog({
+      adminId: req.user.userId,
+      action: "DELETE_CONTENT",
+      targetType: "Recipe",
+      targetId: recipe._id,
+      details: "Admin deleted content",
+    });
+    return successResponse(res, 200, null, null, "Content deleted");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const auditLog = async (req, res, next) => {
+  try {
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+    const query = {};
+    if (req.query.action) query.action = req.query.action;
+    if (req.query.userId) query.adminId = req.query.userId;
+    if (req.query.from || req.query.to) {
+      query.createdAt = {};
+      if (req.query.from) query.createdAt.$gte = new Date(req.query.from);
+      if (req.query.to) query.createdAt.$lte = new Date(req.query.to);
+    }
+
+    const total = await AuditLog.countDocuments(query);
+    const logs = await AuditLog.find(query).sort("-createdAt").skip(skip).limit(limit);
+    return successResponse(
+      res,
+      200,
+      logs,
+      { page, limit, total, pages: Math.ceil(total / limit) },
+      "Audit log"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const dashboardStats = async (req, res, next) => {
+  try {
+    const startOfWeek = new Date();
+    startOfWeek.setDate(startOfWeek.getDate() - 7);
+
+    const [totalUsers, totalRecipes, flaggedItems, newSignupsThisWeek, professionalUsers] = await Promise.all([
+      User.countDocuments({}),
+      Recipe.countDocuments({}),
+      Recipe.countDocuments({ isFlagged: true }),
+      User.countDocuments({ createdAt: { $gte: startOfWeek } }),
+      User.countDocuments({ isProfessional: true }),
+    ]);
+
+    return successResponse(
+      res,
+      200,
+      { totalUsers, totalRecipes, flaggedItems, newSignupsThisWeek, professionalUsers },
+      null,
+      "Dashboard stats"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const Dispute = require("../models/dispute.model");
+
+const listDisputes = async (req, res, next) => {
+  try {
+    const status = req.query.status || "pending";
+    const disputes = await Dispute.find({ status })
+      .populate("reporterId", "firstName lastName username")
+      .populate("recipeId", "title slug status")
+      .sort("-createdAt");
+    
+    return successResponse(res, 200, disputes, null, "Dispute list");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resolveDispute = async (req, res, next) => {
+  try {
+    const { disputeId } = req.params;
+    const { actionTaken, notes } = req.body;
+
+    const dispute = await Dispute.findById(disputeId);
+    if (!dispute) return errorResponse(res, 404, "Dispute not found", "NOT_FOUND");
+
+    dispute.status = "resolved";
+    dispute.resolution = {
+      actionTaken,
+      notes,
+      resolvedBy: req.user.userId,
+      resolvedAt: new Date(),
+    };
+
+    await dispute.save();
+
+    // If action was content removal, update the recipe or comment
+    if (actionTaken === "Content Removed") {
+      if (dispute.targetType === "Comment") {
+        const comment = await Comment.findByIdAndDelete(dispute.commentId);
+        if (comment) {
+          await Recipe.findByIdAndUpdate(comment.recipeId, { $inc: { commentCount: -1 } });
+        }
+      } else {
+        await Recipe.findByIdAndUpdate(dispute.recipeId, { status: "rejected", isFlagged: false });
+      }
+    }
+
+    await writeAuditLog({
+      adminId: req.user.userId,
+      action: "RESOLVE_DISPUTE",
+      targetType: "Dispute",
+      targetId: dispute._id,
+      details: `Dispute resolved with action: ${actionTaken}`,
+    });
+
+    return successResponse(res, 200, dispute, null, "Dispute resolved");
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  listUsers,
+  getUserById,
+  suspendUser,
+  reinstateUser,
+  deleteUser,
+  listContent,
+  approveContent,
+  rejectContent,
+  deleteContent,
+  auditLog,
+  dashboardStats,
+  listDisputes,
+  resolveDispute,
+};
+const Recipe = require("../models/recipe.model");
+const View = require("../models/view.model");
+const Follow = require("../models/follow.model");
+const User = require("../models/user.model");
+const { successResponse, errorResponse } = require("../utils/apiResponse");
+
+/**
+ * Professional analytics — only available to users with isProfessional = true
+ */
+
+const profileAnalytics = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user.isProfessional) {
+      return errorResponse(res, 403, "Professional mode required", "PROFESSIONAL_REQUIRED");
+    }
+
+    const totalRecipes = await Recipe.countDocuments({ authorId: req.user.userId, status: "published" });
+    const recipes = await Recipe.find({ authorId: req.user.userId, status: "published" });
+    const recipeIds = recipes.map((r) => r._id);
+
+    // Total views across all recipes
+    const totalViews = recipes.reduce((sum, r) => sum + r.viewCount, 0);
+
+    // Unique viewers (distinct users who viewed any of your recipes)
+    const uniqueViewers = await View.distinct("userId", { recipeId: { $in: recipeIds } });
+
+    // Total engagement
+    const totalLikes = recipes.reduce((sum, r) => sum + r.likeCount, 0);
+    const totalComments = recipes.reduce((sum, r) => sum + r.commentCount, 0);
+    const totalSaves = recipes.reduce((sum, r) => sum + r.saveCount, 0);
+    const totalShares = recipes.reduce((sum, r) => sum + r.shareCount, 0);
+
+    // New followers in the last 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const newFollowers = await Follow.countDocuments({
+      followingId: req.user.userId,
+      status: "accepted",
+      createdAt: { $gte: thirtyDaysAgo },
+    });
+
+    // Top 5 performing recipes by views
+    const topRecipes = recipes
+      .sort((a, b) => b.viewCount - a.viewCount)
+      .slice(0, 5)
+      .map((r) => ({
+        _id: r._id,
+        title: r.title,
+        viewCount: r.viewCount,
+        likeCount: r.likeCount,
+        commentCount: r.commentCount,
+        saveCount: r.saveCount,
+      }));
+
+    return successResponse(res, 200, {
+      overview: {
+        totalRecipes,
+        totalViews,
+        uniqueViewers: uniqueViewers.length,
+        totalLikes,
+        totalComments,
+        totalSaves,
+        totalShares,
+        followerCount: user.followerCount,
+        newFollowersLast30Days: newFollowers,
+      },
+      topRecipes,
+    }, null, "Professional analytics");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const recipeAnalytics = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user.isProfessional) {
+      return errorResponse(res, 403, "Professional mode required", "PROFESSIONAL_REQUIRED");
+    }
+
+    const recipe = await Recipe.findById(req.params.recipeId);
+    if (!recipe || recipe.authorId.toString() !== req.user.userId) {
+      return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    }
+
+    // Unique viewers for this recipe
+    const uniqueViewers = await View.distinct("userId", { recipeId: recipe._id });
+
+    // Views over the last 7 days
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentViewCount = await View.countDocuments({
+      recipeId: recipe._id,
+      viewedAt: { $gte: sevenDaysAgo },
+    });
+
+    return successResponse(res, 200, {
+      recipeId: recipe._id,
+      title: recipe.title,
+      totalViews: recipe.viewCount,
+      uniqueViewers: uniqueViewers.length,
+      recentViews7d: recentViewCount,
+      likeCount: recipe.likeCount,
+      commentCount: recipe.commentCount,
+      saveCount: recipe.saveCount,
+      shareCount: recipe.shareCount,
+    }, null, "Recipe analytics");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Admin dashboard stats (kept from original)
+const dashboardStats = async (req, res, next) => {
+  try {
+    const totalUsers = await User.countDocuments();
+    const totalRecipes = await Recipe.countDocuments();
+    const publishedRecipes = await Recipe.countDocuments({ status: "published" });
+    const flaggedRecipes = await Recipe.countDocuments({ isFlagged: true });
+    const professionalUsers = await User.countDocuments({ isProfessional: true });
+
+    return successResponse(res, 200, {
+      totalUsers,
+      totalRecipes,
+      publishedRecipes,
+      flaggedRecipes,
+      professionalUsers,
+    }, null, "Dashboard stats");
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  profileAnalytics,
+  recipeAnalytics,
+  dashboardStats,
+};
+const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+const { OAuth2Client } = require("google-auth-library");
+const User = require("../models/user.model");
+const { 
+  generateAccessToken, 
+  generateRefreshToken, 
+  generateVerificationToken 
+} = require("../utils/generateToken");
+const hashToken = require("../utils/hashToken");
+const { JWT_VERIFICATION_SECRET, GOOGLE_CLIENT_ID } = require("../config/config");
+const { successResponse, errorResponse } = require("../utils/apiResponse");
+const {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+  sendWelcomeEmail,
+} = require("../services/email.service");
+
+const client = new OAuth2Client(GOOGLE_CLIENT_ID);
+
+const register = async (req, res, next) => {
+  try {
+    const { firstName, lastName, username, email, password } = req.body;
+    if (!firstName || !lastName || !username || !email || !password) {
+      return errorResponse(res, 400, "Missing required fields", "VALIDATION_ERROR");
+    }
+
+    const exists = await User.findOne({ email: email.toLowerCase() });
+    if (exists) {
+      return errorResponse(res, 400, "User already exists", "USER_EXISTS");
+    }
+
+    const user = await User.create({
+      firstName,
+      lastName,
+      username,
+      email: email.toLowerCase(),
+      passwordHash: password,
+    });
+
+    // Generate JWT verification token
+    const verificationToken = generateVerificationToken({ userId: user._id });
+    user.verificationToken = hashToken(verificationToken);
+
+
+
+    // Generate session tokens
+    const accessToken = generateAccessToken({ userId: user._id, role: user.role });
+    const refreshToken = generateRefreshToken({ userId: user._id });
+
+    // Store hashed refresh token
+    user.refreshToken = hashToken(refreshToken);
+    await user.save();
+
+    // Only send verification email first for manual signup
+    await sendVerificationEmail(user, verificationToken);
+
+    return successResponse(
+      res,
+      201,
+      { user, accessToken, refreshToken },
+      null,
+      "Account created! Please check your email to verify your account."
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const googleLogin = async (req, res, next) => {
+  try {
+    const { idToken } = req.body;
+    if (!idToken) return errorResponse(res, 400, "Google ID Token required", "VALIDATION_ERROR");
+
+    const ticket = await client.verifyIdToken({
+      idToken,
+      audience: GOOGLE_CLIENT_ID,
+    });
+    const payload = ticket.getPayload();
+    const { email, given_name, family_name, picture, sub: googleId } = payload;
+
+    let user = await User.findOne({ email });
+
+    if (!user) {
+      // Create user if not exists
+      user = await User.create({
+        firstName: given_name,
+        lastName: family_name,
+        email,
+        username: `google_${googleId.substring(0, 8)}`,
+        isEmailVerified: true, // Google emails are already verified
+        profileImage: picture,
+      });
+
+      await sendWelcomeEmail(user);
+    }
+
+    const accessToken = generateAccessToken({ userId: user._id, role: user.role });
+    const refreshToken = generateRefreshToken({ userId: user._id });
+
+    user.refreshToken = hashToken(refreshToken);
+    await user.save();
+
+    return successResponse(res, 200, { user, accessToken, refreshToken }, null, "Logged in with Google");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const login = async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email: (email || "").toLowerCase() }).select("+passwordHash");
+    if (!user || !(await user.comparePassword(password || ""))) {
+      return errorResponse(res, 401, "Invalid email or password", "INVALID_CREDENTIALS");
+    }
+
+    const accessToken = generateAccessToken({ userId: user._id, role: user.role });
+    const refreshToken = generateRefreshToken({ userId: user._id });
+
+    user.refreshToken = hashToken(refreshToken);
+    await user.save();
+
+    return successResponse(res, 200, { user, accessToken, refreshToken }, null, "Login successful");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const refreshAccessToken = async (req, res, next) => {
+  try {
+    const { token } = req.body;
+    if (!token) {
+      return errorResponse(res, 400, "Refresh token is required", "TOKEN_REQUIRED");
+    }
+
+    const hashedToken = hashToken(token);
+    const user = await User.findOne({ refreshToken: hashedToken }).select("+refreshToken");
+    if (!user) {
+      return errorResponse(res, 401, "Invalid or expired refresh token", "INVALID_TOKEN");
+    }
+
+    // Optional: Verify JWT validity here if you want extra security
+    const accessToken = generateAccessToken({ userId: user._id, role: user.role });
+    return successResponse(res, 200, { accessToken }, null, "Token refreshed");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const logout = async (req, res) =>
+  successResponse(res, 200, null, null, "Logged out successfully");
+
+const forgotPassword = async (req, res, next) => {
+  try {
+    const { email } = req.body;
+    const user = await User.findOne({ email: email.toLowerCase() });
+
+    if (!user) {
+      return errorResponse(res, 404, "Email not found", "NOT_FOUND");
+    }
+
+    const resetToken = generateVerificationToken({ userId: user._id });
+    user.resetPasswordToken = hashToken(resetToken);
+    user.resetPasswordExpires = Date.now() + 3600000; // 1 hour
+    await user.save();
+
+    const resetUrl = `${req.protocol}://${req.get("host")}/reset-password/${resetToken}`;
+    await sendPasswordResetEmail(user, resetUrl);
+
+    return successResponse(res, 200, null, null, "Password reset link sent to email");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const resetPassword = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    // Verify JWT
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_VERIFICATION_SECRET);
+    } catch (err) {
+      return errorResponse(res, 400, "Invalid or expired reset link", "INVALID_TOKEN");
+    }
+
+    const user = await User.findOne({
+      _id: decoded.userId,
+      resetPasswordToken: hashToken(token),
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return errorResponse(res, 400, "Invalid or expired reset link", "INVALID_TOKEN");
+    }
+
+    user.passwordHash = password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    return successResponse(res, 200, null, null, "Password reset successful");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const verifyEmail = async (req, res, next) => {
+  try {
+    const { token } = req.params;
+
+    // Verify JWT
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_VERIFICATION_SECRET);
+    } catch (err) {
+      return errorResponse(res, 400, "Invalid or expired verification link", "INVALID_TOKEN");
+    }
+
+    const user = await User.findOne({
+      _id: decoded.userId,
+      verificationToken: hashToken(token),
+    });
+
+    if (!user) {
+      return errorResponse(res, 400, "Invalid verification link", "INVALID_TOKEN");
+    }
+
+    user.isEmailVerified = true;
+    user.verificationToken = undefined;
+    await user.save();
+
+    // Send Welcome Email only after email is verified
+    await sendWelcomeEmail(user);
+
+    return successResponse(res, 200, null, null, "Email verified successfully! You can now log in to your dashboard.");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const me = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    return successResponse(res, 200, { user }, null, "Current user profile");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteMe = async (req, res, next) => {
+  try {
+    const { password } = req.body;
+    if (!password) {
+      return errorResponse(res, 400, "Password is required to delete account", "PASSWORD_REQUIRED");
+    }
+
+    const user = await User.findById(req.user.userId).select("+passwordHash");
+    if (!user || !(await user.comparePassword(password))) {
+      return errorResponse(res, 401, "Invalid password", "INVALID_CREDENTIALS");
+    }
+
+
+    await User.findByIdAndDelete(req.user.userId);
+    return successResponse(res, 200, null, null, "Account deleted successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateSettings = async (req, res, next) => {
+  try {
+    const { isPrivate, isProfessional } = req.body;
+    const update = {};
+    if (typeof isPrivate === "boolean") update.isPrivate = isPrivate;
+    if (typeof isProfessional === "boolean") update.isProfessional = isProfessional;
+
+    const user = await User.findByIdAndUpdate(req.user.userId, update, { new: true });
+    return successResponse(res, 200, { user }, null, "Settings updated");
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  register,
+  login,
+  googleLogin,
+  logout,
+  forgotPassword,
+  resetPassword,
+  verifyEmail,
+  refreshAccessToken,
+  me,
+  deleteMe,
+  updateSettings,
+};
+const Notification = require("../models/notification.model");
+const { successResponse, errorResponse } = require("../utils/apiResponse");
+
+/**
+ * List notifications for current user
+ */
+const listNotifications = async (req, res, next) => {
+  try {
+    const notifications = await Notification.find({ recipientId: req.user.userId })
+      .populate("actorId", "firstName lastName username profileImage")
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return successResponse(res, 200, { notifications }, null, "Notifications retrieved");
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Mark a single notification as read
+ */
+const markRead = async (req, res, next) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: req.params.id, recipientId: req.user.userId },
+      { isRead: true },
+      { new: true }
+    );
+
+    if (!notification) {
+      return errorResponse(res, 404, "Notification not found", "NOT_FOUND");
+    }
+
+    return successResponse(res, 200, { notification }, null, "Notification marked as read");
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Mark all visible notifications as read
+ */
+const markAllRead = async (req, res, next) => {
+  try {
+    await Notification.updateMany(
+      { recipientId: req.user.userId, isRead: false },
+      { isRead: true }
+    );
+    return successResponse(res, 200, null, null, "All notifications marked as read");
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  listNotifications,
+  markRead,
+  markAllRead,
+};
+const Recipe = require("../models/recipe.model");
+const User = require("../models/user.model");
+const Follow = require("../models/follow.model");
+const { uploadBuffer, deleteAsset } = require("../services/cloudinary.service");
+const { successResponse, errorResponse } = require("../utils/apiResponse");
+
+const getPublicProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) {
+      return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    }
+
+    const recipeCount = await Recipe.countDocuments({ authorId: user._id, status: "published" });
+
+    // Check if requester follows this user
+    let isFollowing = false;
+    let followStatus = null;
+    if (req.user) {
+      const follow = await Follow.findOne({
+        followerId: req.user.userId,
+        followingId: user._id,
+      });
+      if (follow) {
+        isFollowing = follow.status === "accepted";
+        followStatus = follow.status;
+      }
+    }
+
+    return successResponse(res, 200, {
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        username: user.username,
+        isPrivate: user.isPrivate,
+        isProfessional: user.isProfessional,
+        followerCount: user.followerCount,
+        followingCount: user.followingCount,
+        biography: user.biography,
+        profileImage: user.profileImage,
+        socialLinks: user.socialLinks,
+        specialisations: user.specialisations,
+        businessCategory: user.businessCategory,
+      },
+      recipeCount,
+      isFollowing,
+      followStatus,
+    }, null, "User profile");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getMyProfile = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    }
+    
+    const recipeCount = await Recipe.countDocuments({ authorId: req.user.userId });
+    const publishedCount = await Recipe.countDocuments({ authorId: req.user.userId, status: "published" });
+    const draftCount = await Recipe.countDocuments({ authorId: req.user.userId, status: { $in: ["draft", "pending", "rejected"] } });
+
+    return successResponse(
+      res,
+      200,
+      {
+        user,
+        stats: { recipeCount, publishedCount, draftCount },
+      },
+      null,
+      "My profile"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateProfile = async (req, res, next) => {
+  try {
+    const { biography, socialLinks, specialisations, contactEmail, businessCategory } = req.body;
+    const update = {};
+    if (biography !== undefined) update.biography = biography;
+    if (socialLinks !== undefined) update.socialLinks = socialLinks;
+    if (specialisations !== undefined) update.specialisations = specialisations;
+    if (contactEmail !== undefined) update.contactEmail = contactEmail;
+    if (businessCategory !== undefined) update.businessCategory = businessCategory;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: update },
+      { new: true, runValidators: true }
+    );
+    if (!user) {
+      return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    }
+    return successResponse(res, 200, user, null, "Profile updated");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadAvatar = async (req, res, next) => {
+  try {
+    const file = req.files?.avatar?.[0];
+    if (!file) {
+      return errorResponse(res, 400, "Avatar file is required", "VALIDATION_ERROR");
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user) {
+      return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    }
+
+    const result = await uploadBuffer({
+      buffer: file.buffer,
+      folder: "recipenest/avatars",
+    });
+
+    if (user.profileImagePublicId) {
+      await deleteAsset(user.profileImagePublicId);
+    }
+
+    user.profileImage = result.secure_url;
+    user.profileImagePublicId = result.public_id;
+    await user.save();
+
+    return successResponse(res, 200, user, null, "Avatar uploaded");
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  getPublicProfile,
+  getMyProfile,
+  updateProfile,
+  uploadAvatar,
+};
+const Recipe = require("../models/recipe.model");
+const Follow = require("../models/follow.model");
+const User = require("../models/user.model");
+const View = require("../models/view.model");
+const Like = require("../models/like.model");
+const Save = require("../models/save.model");
+const { uploadBuffer, deleteAsset } = require("../services/cloudinary.service");
+const { notifyFollowers } = require("../services/notification.service");
+const { successResponse, errorResponse } = require("../utils/apiResponse");
+
+const listRecipes = async (req, res, next) => {
+  try {
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+    const sortMap = { date: "-createdAt", cookTime: "cookTime", difficulty: "difficulty", popular: "-likeCount" };
+    const sort = sortMap[req.query.sort] || "-createdAt";
+
+    const query = { status: "published" };
+    if (req.query.cuisine) query.cuisineType = req.query.cuisine;
+    if (req.query.difficulty) query.difficulty = req.query.difficulty;
+    
+    if (req.query.category) {
+      const Category = require("../models/category.model");
+      const targetCategory = await Category.findById(req.query.category);
+      if (targetCategory) {
+        // Find all subcategories recursively (simple 2-level for now)
+        const subCats = await Category.find({ parentId: targetCategory._id });
+        const catIds = [targetCategory._id, ...subCats.map(c => c._id)];
+        
+        // Check for deeper nesting (grandchildren)
+        if (subCats.length > 0) {
+          const grandSubCats = await Category.find({ parentId: { $in: subCats.map(c => c._id) } });
+          const grandIds = grandSubCats.map(c => c._id);
+          catIds.push(...grandIds);
+        }
+        
+        query.categoryId = { $in: catIds };
+      }
+    }
+    
+    if (req.query.q) query.$text = { $search: req.query.q };
+
+    // Exclude recipes from private accounts unless the requester follows them
+    if (req.user) {
+      const following = await Follow.find({
+        followerId: req.user.userId,
+        status: "accepted",
+      }).select("followingId");
+      const followingIds = following.map((f) => f.followingId);
+
+      // Include public accounts + private accounts the user follows + own recipes
+      const privateUsers = await User.find({ isPrivate: true }).select("_id");
+      const privateIds = privateUsers.map((u) => u._id);
+      const blockedIds = privateIds.filter(
+        (id) => !followingIds.some((fId) => fId.equals(id)) && id.toString() !== req.user.userId
+      );
+
+      if (blockedIds.length > 0) {
+        query.authorId = { $nin: blockedIds };
+      }
+    } else {
+      // Unauthenticated users only see public account recipes
+      const privateUsers = await User.find({ isPrivate: true }).select("_id");
+      const privateIds = privateUsers.map((u) => u._id);
+      if (privateIds.length > 0) {
+        query.authorId = { $nin: privateIds };
+      }
+    }
+
+    const total = await Recipe.countDocuments(query);
+    const recipes = await Recipe.find(query)
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
+      .populate("authorId", "firstName lastName username isProfessional");
+
+    return successResponse(
+      res,
+      200,
+      recipes,
+      { page, limit, total, pages: Math.ceil(total / limit) },
+      "Recipes list"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getRecipeById = async (req, res, next) => {
+  try {
+    const recipe = await Recipe.findById(req.params.recipeId)
+      .populate("authorId", "firstName lastName username isProfessional isPrivate");
+
+    if (!recipe || recipe.status !== "published") {
+      return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    }
+
+    // Privacy check: if author is private, only followers can view
+    if (recipe.authorId && recipe.authorId.isPrivate) {
+      if (!req.user) {
+        return errorResponse(res, 403, "This account is private", "PRIVATE_ACCOUNT");
+      }
+      const isOwner = req.user.userId === recipe.authorId._id.toString();
+      if (!isOwner) {
+        const follow = await Follow.findOne({
+          followerId: req.user.userId,
+          followingId: recipe.authorId._id,
+          status: "accepted",
+        });
+        
+        if (!follow) {
+          return errorResponse(res, 403, "This account is private", "PRIVATE_ACCOUNT");
+        }
+      }
+    }
+
+    // Track view count
+    recipe.viewCount += 1;
+    await recipe.save();
+
+    // Track unique view for professional analytics
+    if (req.user) {
+      const existingView = await View.findOne({
+        recipeId: recipe._id,
+        userId: req.user.userId,
+      });
+      if (!existingView) {
+        await View.create({ recipeId: recipe._id, userId: req.user.userId });
+      }
+    }
+
+    // Check if requester has liked/saved this recipe
+    let isLiked = false;
+    let isSaved = false;
+    if (req.user) {
+      isLiked = Boolean(await Like.findOne({ userId: req.user.userId, recipeId: recipe._id }));
+      isSaved = Boolean(await Save.findOne({ userId: req.user.userId, recipeId: recipe._id }));
+    }
+
+    return successResponse(res, 200, { recipe, isLiked, isSaved }, null, "Recipe detail");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getRecipesByUser = async (req, res, next) => {
+  try {
+    const targetUser = await User.findById(req.params.userId);
+    if (!targetUser) {
+      return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    }
+
+    // Privacy check
+    if (targetUser.isPrivate) {
+      const isOwner = req.user && req.user.userId === targetUser._id.toString();
+      if (!isOwner) {
+        const follow = req.user
+          ? await Follow.findOne({
+              followerId: req.user.userId,
+              followingId: targetUser._id,
+              status: "accepted",
+            })
+          : null;
+        if (!follow) {
+          return errorResponse(res, 403, "This account is private", "PRIVATE_ACCOUNT");
+        }
+      }
+    }
+
+    const recipes = await Recipe.find({
+      authorId: targetUser._id,
+      status: "published",
+    }).sort("-createdAt");
+
+    return successResponse(res, 200, recipes, null, "Recipes by user");
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Personalized Recommendation Engine
+ * Combines "Following Feed" with "Discover Trending"
+ */
+const getPersonalizedFeed = async (req, res, next) => {
+  try {
+    const page = Number(req.query.page || 1);
+    const limit = Number(req.query.limit || 10);
+    const skip = (page - 1) * limit;
+
+    let followingIds = [];
+    if (req.user) {
+      const following = await Follow.find({
+        followerId: req.user.userId,
+        status: "accepted",
+      }).select("followingId");
+      followingIds = following.map(f => f.followingId);
+    }
+
+    // 1. Calculate Priority Feed (Following + Own Content)
+    const priorityQuery = {
+      status: "published",
+      authorId: { $in: [...followingIds, req.user?.userId].filter(Boolean) }
+    };
+
+    // 2. Discover Trending (Popular content not from following)
+    const discoveryQuery = {
+      status: "published",
+      authorId: { $nin: priorityQuery.authorId },
+      likeCount: { $gte: 2 } // Only show "proven" content in trending
+    };
+
+    // Exclude private accounts from the discovery query
+    const privateUsers = await User.find({ isPrivate: true }).select("_id");
+    const privateIds = privateUsers.map(u => u._id);
+    discoveryQuery.authorId.$nin.push(...privateIds);
+
+    // Initial load: Mix of both
+    const [followingRecipes, trendingRecipes] = await Promise.all([
+      Recipe.find(priorityQuery).sort("-createdAt").limit(limit).populate("authorId", "firstName lastName username"),
+      Recipe.find(discoveryQuery).sort("-likeCount -createdAt").limit(limit).populate("authorId", "firstName lastName username")
+    ]);
+
+    // Simple interleaving for a dynamic feel
+    const feed = [];
+    const max = Math.max(followingRecipes.length, trendingRecipes.length);
+    for (let i = 0; i < max; i++) {
+        if (followingRecipes[i]) feed.push(followingRecipes[i]);
+        if (trendingRecipes[i]) feed.push(trendingRecipes[i]);
+    }
+
+    return successResponse(res, 200, feed.slice(0, limit), null, "Personalized feed");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const myRecipes = async (req, res, next) => {
+  try {
+    const recipes = await Recipe.find({ authorId: req.user.userId }).sort("-updatedAt");
+    return successResponse(res, 200, recipes, null, "My recipes");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const createRecipe = async (req, res, next) => {
+  try {
+    // 1. Double Submit Protection (Prevent accidental rapid multiple clicks)
+    const { title } = req.body;
+    const authorId = req.user.userId;
+
+    const recentDuplicate = await Recipe.findOne({
+      authorId,
+      title,
+      createdAt: { $gte: new Date(Date.now() - 15 * 1000) }, // Last 15 seconds
+    });
+
+    if (recentDuplicate) {
+      return errorResponse(res, 400, "You just posted this recipe. Please wait a moment.", "DOUBLE_SUBMIT");
+    }
+
+    const payload = { ...req.body, authorId };
+    const recipe = await Recipe.create(payload);
+
+    if (recipe.status === "published") {
+      notifyFollowers(authorId, recipe);
+    }
+
+    return successResponse(res, 201, recipe, null, "Recipe created");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const updateRecipe = async (req, res, next) => {
+  try {
+    const recipe = await Recipe.findById(req.params.recipeId);
+    if (!recipe) {
+      return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    }
+    if (recipe.authorId.toString() !== req.user.userId && req.user.role !== "admin") {
+      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
+    }
+
+    const updated = await Recipe.findByIdAndUpdate(req.params.recipeId, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (recipe.status !== "published" && updated.status === "published") {
+      notifyFollowers(req.user.userId, updated);
+    }
+    
+    return successResponse(res, 200, updated, null, "Recipe updated");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteRecipe = async (req, res, next) => {
+  try {
+    const recipe = await Recipe.findById(req.params.recipeId);
+    if (!recipe) {
+      return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    }
+    if (recipe.authorId.toString() !== req.user.userId && req.user.role !== "admin") {
+      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
+    }
+
+    await Recipe.findByIdAndDelete(req.params.recipeId);
+    return successResponse(res, 200, null, null, "Recipe deleted");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const shareRecipe = async (req, res, next) => {
+  try {
+    const recipe = await Recipe.findById(req.params.recipeId);
+    if (!recipe) {
+      return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    }
+    recipe.shareCount += 1;
+    await recipe.save();
+    const shareUrl = `${req.protocol}://${req.get("host")}/recipes/${recipe.slug || recipe._id}`;
+    return successResponse(res, 200, { shareUrl }, null, "Share URL generated");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadHeroImage = async (req, res, next) => {
+  try {
+    const file = req.files?.hero?.[0];
+    if (!file) return errorResponse(res, 400, "hero image required", "VALIDATION_ERROR");
+    const recipe = await Recipe.findById(req.params.recipeId);
+    if (!recipe) return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    if (recipe.authorId.toString() !== req.user.userId) {
+      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
+    }
+
+    const result = await uploadBuffer({
+      buffer: file.buffer,
+      folder: `recipenest/recipes/${recipe._id}`,
+    });
+    if (recipe.mainImagePublicId) await deleteAsset(recipe.mainImagePublicId);
+
+    recipe.mainImage = result.secure_url;
+    recipe.mainImagePublicId = result.public_id;
+    await recipe.save();
+    return successResponse(res, 200, recipe, null, "Hero image uploaded");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadStepImages = async (req, res, next) => {
+  try {
+    const files = req.files?.steps || [];
+    if (files.length === 0) return errorResponse(res, 400, "steps images required", "VALIDATION_ERROR");
+    const recipe = await Recipe.findById(req.params.recipeId);
+    if (!recipe) return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    if (recipe.authorId.toString() !== req.user.userId) {
+      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
+    }
+
+    for (const file of files) {
+      const result = await uploadBuffer({
+        buffer: file.buffer,
+        folder: `recipenest/recipes/${recipe._id}`,
+      });
+      recipe.stepImages.push(result.secure_url);
+      recipe.stepImagePublicIds.push(result.public_id);
+    }
+    recipe.stepImages = recipe.stepImages.slice(0, 5);
+    recipe.stepImagePublicIds = recipe.stepImagePublicIds.slice(0, 5);
+    await recipe.save();
+    return successResponse(res, 200, recipe, null, "Step images uploaded");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const uploadResultImage = async (req, res, next) => {
+  try {
+    const file = req.files?.result?.[0];
+    if (!file) return errorResponse(res, 400, "result image required", "VALIDATION_ERROR");
+    const recipe = await Recipe.findById(req.params.recipeId);
+    if (!recipe) return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    if (recipe.authorId.toString() !== req.user.userId) {
+      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
+    }
+
+    const result = await uploadBuffer({
+      buffer: file.buffer,
+      folder: `recipenest/recipes/${recipe._id}`,
+    });
+    if (recipe.resultImagePublicId) await deleteAsset(recipe.resultImagePublicId);
+
+    recipe.resultImage = result.secure_url;
+    recipe.resultImagePublicId = result.public_id;
+    await recipe.save();
+    return successResponse(res, 200, recipe, null, "Result image uploaded");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteImageSlot = async (req, res, next) => {
+  try {
+    const { slot } = req.params;
+    const recipe = await Recipe.findById(req.params.recipeId);
+    if (!recipe) return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    if (recipe.authorId.toString() !== req.user.userId) {
+      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
+    }
+
+    if (slot === "hero") {
+      await deleteAsset(recipe.mainImagePublicId);
+      recipe.mainImage = "";
+      recipe.mainImagePublicId = "";
+    } else if (slot === "result") {
+      await deleteAsset(recipe.resultImagePublicId);
+      recipe.resultImage = "";
+      recipe.resultImagePublicId = "";
+    } else {
+      const index = Number(slot);
+      if (Number.isNaN(index) || index < 0 || index >= recipe.stepImages.length) {
+        return errorResponse(res, 400, "Invalid slot", "VALIDATION_ERROR");
+      }
+      const publicId = recipe.stepImagePublicIds[index];
+      await deleteAsset(publicId);
+      recipe.stepImages.splice(index, 1);
+      recipe.stepImagePublicIds.splice(index, 1);
+    }
+
+    await recipe.save();
+    return successResponse(res, 200, recipe, null, "Image removed");
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  listRecipes,
+  getRecipeById,
+  getRecipesByUser,
+  getPersonalizedFeed,
+  myRecipes,
+  createRecipe,
+  updateRecipe,
+  deleteRecipe,
+  shareRecipe,
+  uploadHeroImage,
+  uploadStepImages,
+  uploadResultImage,
+  deleteImageSlot,
+};
+const Recipe = require("../models/recipe.model");
+const User = require("../models/user.model");
+const Category = require("../models/category.model");
+const { successResponse } = require("../utils/apiResponse");
+
+const search = async (req, res, next) => {
+  try {
+    const q = (req.query.q || "").trim();
+    const type = req.query.type || "all";
+    if (!q) {
+      return successResponse(res, 200, [], null, "Search results");
+    }
+
+    let results = [];
+    if (type === "recipe" || type === "all") {
+      const recipes = await Recipe.find({
+        status: "published",
+        $text: { $search: q },
+      })
+        .select("title slug description ingredients mainImage authorId")
+        .populate("authorId", "firstName lastName username");
+
+      results = results.concat(recipes.map((r) => ({ type: "recipe", item: r })));
+    }
+
+    if (type === "user" || type === "all") {
+      const users = await User.find({
+        $or: [
+          { firstName: { $regex: q, $options: "i" } },
+          { lastName: { $regex: q, $options: "i" } },
+          { username: { $regex: q, $options: "i" } },
+        ],
+      }).select("firstName lastName username isProfessional profileImage");
+
+      const userResults = users.map((u) => ({
+        type: "user",
+        item: {
+          userId: u._id,
+          name: `${u.firstName} ${u.lastName}`.trim(),
+          username: u.username,
+          isProfessional: u.isProfessional,
+          profileImage: u.profileImage || "",
+        },
+      }));
+      results = results.concat(userResults);
+    }
+
+    return successResponse(res, 200, results, null, "Search results");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const listCategories = async (req, res, next) => {
+  try {
+    const categories = await Category.find().lean();
+    
+    // Build tree
+    const categoryMap = {};
+    categories.forEach(cat => {
+      categoryMap[cat._id] = { ...cat, children: [] };
+    });
+    
+    const tree = [];
+    categories.forEach(cat => {
+      if (cat.parentId && categoryMap[cat.parentId]) {
+        categoryMap[cat.parentId].children.push(categoryMap[cat._id]);
+      } else {
+        tree.push(categoryMap[cat._id]);
+      }
+    });
+    
+    return successResponse(res, 200, tree, null, "Category tree");
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  search,
+  listCategories,
+};
+const User = require("../models/user.model");
+const Follow = require("../models/follow.model");
+const Like = require("../models/like.model");
+const Comment = require("../models/comment.model");
+const Save = require("../models/save.model");
+const Recipe = require("../models/recipe.model");
+const { createNotification } = require("../services/notification.service");
+const { successResponse, errorResponse } = require("../utils/apiResponse");
+
+// ─── FOLLOW ────────────────────────────────────────────
+
+const followUser = async (req, res, next) => {
+  try {
+    const targetId = req.params.userId;
+    const followerId = req.user.userId;
+
+    if (followerId === targetId) {
+      return errorResponse(res, 400, "You cannot follow yourself", "VALIDATION_ERROR");
+    }
+
+    const targetUser = await User.findById(targetId);
+    if (!targetUser) {
+      return errorResponse(res, 404, "User not found", "NOT_FOUND");
+    }
+
+    const existing = await Follow.findOne({ followerId, followingId: targetId });
+    if (existing) {
+      return errorResponse(res, 400, "Already following or request pending", "ALREADY_FOLLOWING");
+    }
+
+    // Private accounts get a pending request; public accounts are auto-accepted
+    const status = targetUser.isPrivate ? "pending" : "accepted";
+    const follow = await Follow.create({ followerId, followingId: targetId, status });
+
+    if (status === "accepted") {
+      await User.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } });
+      await User.findByIdAndUpdate(targetId, { $inc: { followerCount: 1 } });
+    }
+
+    // Trigger Notification
+    const actor = await User.findById(followerId);
+    await createNotification({
+      recipientId: targetId,
+      actorId: followerId,
+      type: status === "accepted" ? "FOLLOW" : "FOLLOW_REQUEST",
+      entityId: followerId,
+      entityModel: "RNUser",
+      message: status === "accepted" 
+        ? `${actor.firstName} followed you` 
+        : `${actor.firstName} requested to follow you`
+    });
+
+    return successResponse(res, 201, follow, null,
+      status === "accepted" ? "Followed successfully" : "Follow request sent"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unfollowUser = async (req, res, next) => {
+  try {
+    const targetId = req.params.userId;
+    const followerId = req.user.userId;
+
+    const follow = await Follow.findOneAndDelete({ followerId, followingId: targetId });
+    if (!follow) {
+      return errorResponse(res, 404, "Not following this user", "NOT_FOUND");
+    }
+
+    if (follow.status === "accepted") {
+      await User.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } });
+      await User.findByIdAndUpdate(targetId, { $inc: { followerCount: -1 } });
+    }
+
+    return successResponse(res, 200, null, null, "Unfollowed successfully");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const acceptFollowRequest = async (req, res, next) => {
+  try {
+    const requestId = req.params.requestId;
+    const follow = await Follow.findById(requestId);
+
+    if (!follow || follow.followingId.toString() !== req.user.userId) {
+      return errorResponse(res, 404, "Follow request not found", "NOT_FOUND");
+    }
+
+    if (follow.status === "accepted") {
+      return errorResponse(res, 400, "Already accepted", "ALREADY_ACCEPTED");
+    }
+
+    follow.status = "accepted";
+    await follow.save();
+
+    await User.findByIdAndUpdate(follow.followerId, { $inc: { followingCount: 1 } });
+    await User.findByIdAndUpdate(follow.followingId, { $inc: { followerCount: 1 } });
+
+    // Notify the follower that their request was accepted
+    const actor = await User.findById(follow.followingId);
+    await createNotification({
+      recipientId: follow.followerId,
+      actorId: follow.followingId,
+      type: "FOLLOW",
+      entityId: follow.followingId,
+      entityModel: "RNUser",
+      message: `${actor.firstName} accepted your follow request`
+    });
+
+    return successResponse(res, 200, follow, null, "Follow request accepted");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const rejectFollowRequest = async (req, res, next) => {
+  try {
+    const requestId = req.params.requestId;
+    const follow = await Follow.findById(requestId);
+
+    if (!follow || follow.followingId.toString() !== req.user.userId) {
+      return errorResponse(res, 404, "Follow request not found", "NOT_FOUND");
+    }
+
+    await Follow.findByIdAndDelete(requestId);
+    return successResponse(res, 200, null, null, "Follow request rejected");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getFollowers = async (req, res, next) => {
+  try {
+    const userId = req.params.userId;
+    const followers = await Follow.find({ followingId: userId, status: "accepted" })
+      .populate("followerId", "firstName lastName username");
+    const data = followers.map((f) => f.followerId);
+    return successResponse(res, 200, data, null, "Followers list");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getFollowing = async (req, res, next) => {
+  try {
+    const userId = req.params.userId;
+    const following = await Follow.find({ followerId: userId, status: "accepted" })
+      .populate("followingId", "firstName lastName username");
+    const data = following.map((f) => f.followingId);
+    return successResponse(res, 200, data, null, "Following list");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getPendingRequests = async (req, res, next) => {
+  try {
+    const requests = await Follow.find({ followingId: req.user.userId, status: "pending" })
+      .populate("followerId", "firstName lastName username");
+    return successResponse(res, 200, requests, null, "Pending follow requests");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── LIKE ──────────────────────────────────────────────
+
+const likeRecipe = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const userId = req.user.userId;
+
+    const existing = await Like.findOne({ userId, recipeId });
+    if (existing) {
+      return errorResponse(res, 400, "Already liked", "ALREADY_LIKED");
+    }
+
+    await Like.create({ userId, recipeId });
+    const recipe = await Recipe.findByIdAndUpdate(recipeId, { $inc: { likeCount: 1 } });
+
+    // Notify Author
+    const actor = await User.findById(userId);
+    await createNotification({
+      recipientId: recipe.authorId,
+      actorId: userId,
+      type: "LIKE",
+      entityId: recipeId,
+      entityModel: "Recipe",
+      message: `${actor.firstName} liked your recipe: ${recipe.title}`
+    });
+
+    return successResponse(res, 201, null, null, "Recipe liked");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unlikeRecipe = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const userId = req.user.userId;
+
+    const deleted = await Like.findOneAndDelete({ userId, recipeId });
+    if (!deleted) {
+      return errorResponse(res, 404, "Like not found", "NOT_FOUND");
+    }
+
+    await Recipe.findByIdAndUpdate(recipeId, { $inc: { likeCount: -1 } });
+    return successResponse(res, 200, null, null, "Like removed");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const likeComment = async (req, res, next) => {
+  try {
+    const { commentId } = req.params;
+    const userId = req.user.userId;
+
+    const existing = await Like.findOne({ userId, commentId });
+    if (existing) {
+      return errorResponse(res, 400, "Comment already liked", "ALREADY_LIKED");
+    }
+
+    await Like.create({ userId, commentId });
+    const comment = await Comment.findByIdAndUpdate(commentId, { $inc: { likeCount: 1 } });
+    if (!comment) return errorResponse(res, 404, "Comment not found", "NOT_FOUND");
+
+    return successResponse(res, 201, null, null, "Comment liked");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unlikeComment = async (req, res, next) => {
+  try {
+    const { commentId } = req.params;
+    const userId = req.user.userId;
+
+    const deleted = await Like.findOneAndDelete({ userId, commentId });
+    if (!deleted) {
+      return errorResponse(res, 404, "Like not found", "NOT_FOUND");
+    }
+
+    await Comment.findByIdAndUpdate(commentId, { $inc: { likeCount: -1 } });
+    return successResponse(res, 200, null, null, "Comment like removed");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── COMMENT ───────────────────────────────────────────
+
+const addComment = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const { text } = req.body;
+
+    if (!text || !text.trim()) {
+      return errorResponse(res, 400, "Comment text is required", "VALIDATION_ERROR");
+    }
+
+    // Double Submit Protection
+    const recentDuplicate = await Comment.findOne({
+      userId: req.user.userId,
+      recipeId,
+      text: text.trim(),
+      createdAt: { $gte: new Date(Date.now() - 10 * 1000) } // Last 10 seconds
+    });
+
+    if (recentDuplicate) {
+      return errorResponse(res, 400, "Duplicate comment detected. Please wait.", "DOUBLE_SUBMIT");
+    }
+
+    const comment = await Comment.create({
+      userId: req.user.userId,
+      recipeId,
+      text: text.trim(),
+    });
+
+    const recipe = await Recipe.findByIdAndUpdate(recipeId, { $inc: { commentCount: 1 } });
+
+    // Notify Author
+    const actor = await User.findById(req.user.userId);
+    await createNotification({
+      recipientId: recipe.authorId,
+      actorId: req.user.userId,
+      type: "COMMENT",
+      entityId: recipeId,
+      entityModel: "Recipe",
+      message: `${actor.firstName} commented on your recipe: ${recipe.title}`
+    });
+
+    const populated = await Comment.findById(comment._id)
+      .populate("userId", "firstName lastName username");
+
+    return successResponse(res, 201, populated, null, "Comment added");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getComments = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const { sortBy = "newest", page = 1, limit = 20 } = req.query;
+    const skip = (Number(page) - 1) * Number(limit);
+
+    // Determine sort order
+    let sortCriteria = "-createdAt"; // Default newest
+    if (sortBy === "oldest") sortCriteria = "createdAt";
+    if (sortBy === "popular") sortCriteria = "-likeCount -createdAt";
+
+    const total = await Comment.countDocuments({ recipeId });
+    const comments = await Comment.find({ recipeId })
+      .sort(sortCriteria)
+      .skip(skip)
+      .limit(Number(limit))
+      .populate("userId", "firstName lastName username profileImage");
+
+    return successResponse(res, 200, comments,
+      { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) },
+      "Comments list"
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+const deleteComment = async (req, res, next) => {
+  try {
+    const { commentId } = req.params;
+    const comment = await Comment.findById(commentId);
+
+    if (!comment) {
+      return errorResponse(res, 404, "Comment not found", "NOT_FOUND");
+    }
+
+    // Only the comment author or an admin can delete
+    if (comment.userId.toString() !== req.user.userId && req.user.role !== "admin") {
+      return errorResponse(res, 403, "Not authorized to delete this comment", "FORBIDDEN");
+    }
+
+    await Comment.findByIdAndDelete(commentId);
+    await Recipe.findByIdAndUpdate(comment.recipeId, { $inc: { commentCount: -1 } });
+
+    return successResponse(res, 200, null, null, "Comment deleted");
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ─── SAVE / BOOKMARK ──────────────────────────────────
+
+const saveRecipe = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const userId = req.user.userId;
+
+    const existing = await Save.findOne({ userId, recipeId });
+    if (existing) {
+      return errorResponse(res, 400, "Already saved", "ALREADY_SAVED");
+    }
+
+    await Save.create({ userId, recipeId });
+    await Recipe.findByIdAndUpdate(recipeId, { $inc: { saveCount: 1 } });
+
+    return successResponse(res, 201, null, null, "Recipe saved");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const unsaveRecipe = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const userId = req.user.userId;
+
+    const deleted = await Save.findOneAndDelete({ userId, recipeId });
+    if (!deleted) {
+      return errorResponse(res, 404, "Save not found", "NOT_FOUND");
+    }
+
+    await Recipe.findByIdAndUpdate(recipeId, { $inc: { saveCount: -1 } });
+    return successResponse(res, 200, null, null, "Recipe unsaved");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getSavedRecipes = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const saves = await Save.find({ userId })
+      .sort("-createdAt")
+      .populate({
+        path: "recipeId",
+        select: "title slug mainImage authorId likeCount commentCount",
+        populate: { path: "authorId", select: "firstName lastName username" },
+      });
+
+    const recipes = saves.map((s) => s.recipeId).filter(Boolean);
+    return successResponse(res, 200, recipes, null, "Saved recipes");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const Dispute = require("../models/dispute.model");
+
+const fileDispute = async (req, res, next) => {
+  try {
+    const { recipeId } = req.params;
+    const { reason, details } = req.body;
+
+    if (!reason || !details) {
+      return errorResponse(res, 400, "Reason and details are required", "VALIDATION_ERROR");
+    }
+
+    // Prevention: User cannot file same dispute twice for same recipe
+    const existing = await Dispute.findOne({
+      reporterId: req.user.userId,
+      recipeId,
+      targetType: "Recipe",
+      status: { $ne: "resolved" }
+    });
+
+    if (existing) {
+      return errorResponse(res, 400, "You have already filed a report for this recipe.", "ALREADY_REPORTED");
+    }
+
+    const dispute = await Dispute.create({
+      reporterId: req.user.userId,
+      recipeId,
+      reason,
+      details,
+    });
+
+    // Mark the recipe as flagged so admins see it in their moderation queue immediately
+    await Recipe.findByIdAndUpdate(recipeId, { isFlagged: true });
+
+    return successResponse(res, 201, dispute, null, "Dispute filed and sent to moderation");
+  } catch (error) {
+    next(error);
+  }
+};
+
+const fileCommentDispute = async (req, res, next) => {
+  try {
+    const { commentId } = req.params;
+    const { reason, details } = req.body;
+
+    const comment = await Comment.findById(commentId);
+    if (!comment) return errorResponse(res, 404, "Comment not found", "NOT_FOUND");
+
+    // Prevention: User cannot report same comment twice
+    const existing = await Dispute.findOne({
+      reporterId: req.user.userId,
+      commentId,
+      targetType: "Comment",
+      status: { $ne: "resolved" }
+    });
+
+    if (existing) {
+      return errorResponse(res, 400, "You have already reported this comment.", "ALREADY_REPORTED");
+    }
+
+    const dispute = await Dispute.create({
+      reporterId: req.user.userId,
+      recipeId: comment.recipeId,
+      commentId,
+      targetType: "Comment",
+      reason,
+      details,
+    });
+
+    return successResponse(res, 201, dispute, null, "Comment reported and sent to moderation");
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  followUser,
+  unfollowUser,
+  acceptFollowRequest,
+  rejectFollowRequest,
+  getFollowers,
+  getFollowing,
+  getPendingRequests,
+  likeRecipe,
+  unlikeRecipe,
+  likeComment,
+  unlikeComment,
+  addComment,
+  getComments,
+  deleteComment,
+  saveRecipe,
+  unsaveRecipe,
+  getSavedRecipes,
+  fileDispute,
+  fileCommentDispute,
+};

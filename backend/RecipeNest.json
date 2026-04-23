@@ -1,0 +1,124 @@
+{
+	"info": {
+		"name": "RecipeNest2 - Master Collection (Explicit Headers)",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "1. Authentication",
+			"item": [
+				{ "name": "Register", "request": { "method": "POST", "url": "{{host}}/api/auth/register", "body": { "mode": "raw", "raw": "{\"firstName\":\"Julia\",\"lastName\":\"Child\",\"username\":\"j_child\",\"email\":\"julia@kitchen.com\",\"password\":\"Mastering123!\"}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Login", "event": [ { "listen": "test", "script": { "exec": [ "const response = pm.response.json(); if (response.data && response.data.accessToken) { pm.environment.set(\"token\", response.data.accessToken); }" ], "type": "text/javascript" } } ], "request": { "method": "POST", "url": "{{host}}/api/auth/login", "body": { "mode": "raw", "raw": "{\"email\":\"julia@kitchen.com\",\"password\":\"Mastering123!\"}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Google Login", "request": { "method": "POST", "url": "{{host}}/api/auth/google", "body": { "mode": "raw", "raw": "{\"idToken\": \"G_TOKEN\"}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Refresh Token", "request": { "method": "POST", "url": "{{host}}/api/auth/refresh-token", "body": { "mode": "raw", "raw": "{\"token\": \"REFRESH_TOKEN\"}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Logout", "request": { "method": "POST", "url": "{{host}}/api/auth/logout", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Forgot Password", "request": { "method": "POST", "url": "{{host}}/api/auth/forgot-password", "body": { "mode": "raw", "raw": "{\"email\":\"julia@kitchen.com\"}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Reset Password", "request": { "method": "POST", "url": "{{host}}/api/auth/reset-password/{{resetToken}}", "body": { "mode": "raw", "raw": "{\"password\":\"NewPass123!\"}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Verify Email", "request": { "method": "GET", "url": "{{host}}/api/auth/verify-email/{{verifyToken}}" } },
+				{ "name": "Get Auth Me", "request": { "method": "GET", "url": "{{host}}/api/auth/me", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Delete Me", "request": { "method": "DELETE", "url": "{{host}}/api/auth/me", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Update Settings", "request": { "method": "PATCH", "url": "{{host}}/api/auth/settings", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "body": { "mode": "raw", "raw": "{\"isPrivate\": false}", "options": { "raw": { "language": "json" } } } } }
+			]
+		},
+		{
+			"name": "2. Profile",
+			"item": [
+				{ "name": "Get My Profile", "request": { "method": "GET", "url": "{{host}}/api/profile/me", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Update My Profile", "request": { "method": "PUT", "url": "{{host}}/api/profile/me", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "body": { "mode": "raw", "raw": "{\"biography\":\"Chef bio here\"}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Upload Avatar", "request": { "method": "POST", "url": "{{host}}/api/profile/me/avatar", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "body": { "mode": "formdata", "formdata": [{ "key": "avatar", "type": "file" }] } } },
+				{ "name": "Get Public Profile", "request": { "method": "GET", "url": "{{host}}/api/profile/{{userId}}" } }
+			]
+		},
+		{
+			"name": "3. Recipes",
+			"item": [
+				{ "name": "List All Recipes", "request": { "method": "GET", "url": "{{host}}/api/recipes" } },
+				{ "name": "Get Feed", "request": { "method": "GET", "url": "{{host}}/api/recipes/feed", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Recipes By User", "request": { "method": "GET", "url": "{{host}}/api/recipes/user/{{userId}}" } },
+				{ "name": "Get Recipe By ID", "request": { "method": "GET", "url": "{{host}}/api/recipes/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "My Recipes", "request": { "method": "GET", "url": "{{host}}/api/recipes/my/all", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Create Recipe", "request": { "method": "POST", "url": "{{host}}/api/recipes", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "body": { "mode": "raw", "raw": "{\"title\":\"Recipe Title\"}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Update Recipe", "request": { "method": "PUT", "url": "{{host}}/api/recipes/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Delete Recipe", "request": { "method": "DELETE", "url": "{{host}}/api/recipes/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Share Recipe", "request": { "method": "POST", "url": "{{host}}/api/recipes/{{recipeId}}/share", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Upload Hero Image", "request": { "method": "POST", "url": "{{host}}/api/recipes/{{recipeId}}/images/hero", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Upload Step Images", "request": { "method": "POST", "url": "{{host}}/api/recipes/{{recipeId}}/images/steps", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Upload Result Image", "request": { "method": "POST", "url": "{{host}}/api/recipes/{{recipeId}}/images/result", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Delete Image Slot", "request": { "method": "DELETE", "url": "{{host}}/api/recipes/{{recipeId}}/images/{{slot}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } }
+			]
+		},
+		{
+			"name": "4. Social",
+			"item": [
+				{ "name": "Follow User", "request": { "method": "POST", "url": "{{host}}/api/social/follow/{{userId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Unfollow User", "request": { "method": "DELETE", "url": "{{host}}/api/social/unfollow/{{userId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Get Follow Requests", "request": { "method": "GET", "url": "{{host}}/api/social/follow-requests", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Accept Request", "request": { "method": "PATCH", "url": "{{host}}/api/social/follow-requests/{{requestId}}/accept", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Reject Request", "request": { "method": "PATCH", "url": "{{host}}/api/social/follow-requests/{{requestId}}/reject", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Get Followers", "request": { "method": "GET", "url": "{{host}}/api/social/followers/{{userId}}" } },
+				{ "name": "Get Following", "request": { "method": "GET", "url": "{{host}}/api/social/following/{{userId}}" } },
+				{ "name": "Like Recipe", "request": { "method": "POST", "url": "{{host}}/api/social/like/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Unlike Recipe", "request": { "method": "DELETE", "url": "{{host}}/api/social/unlike/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Like Comment", "request": { "method": "POST", "url": "{{host}}/api/social/like-comment/{{commentId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Unlike Comment", "request": { "method": "DELETE", "url": "{{host}}/api/social/unlike-comment/{{commentId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Add Comment / Reply", "request": { "method": "POST", "url": "{{host}}/api/social/comments/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }], "body": { "mode": "raw", "raw": "{\"text\":\"Awesome!\",\"parentId\":null}", "options": { "raw": { "language": "json" } } } } },
+				{ "name": "Get Comments", "request": { "method": "GET", "url": "{{host}}/api/social/comments/{{recipeId}}" } },
+				{ "name": "Delete Comment", "request": { "method": "DELETE", "url": "{{host}}/api/social/comments/{{commentId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Save Recipe", "request": { "method": "POST", "url": "{{host}}/api/social/save/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Unsave Recipe", "request": { "method": "DELETE", "url": "{{host}}/api/social/unsave/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Get Saved Recipes", "request": { "method": "GET", "url": "{{host}}/api/social/saved", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "File Recipe Dispute", "request": { "method": "POST", "url": "{{host}}/api/social/dispute/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "File Comment Dispute", "request": { "method": "POST", "url": "{{host}}/api/social/dispute-comment/{{commentId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } }
+			]
+		},
+		{
+			"name": "5. Notifications",
+			"item": [
+				{ "name": "List All", "request": { "method": "GET", "url": "{{host}}/api/notification", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Mark Read", "request": { "method": "PATCH", "url": "{{host}}/api/notification/{{id}}/read", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Mark All Read", "request": { "method": "PATCH", "url": "{{host}}/api/notification/read-all", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } }
+			]
+		},
+		{
+			"name": "6. Admin",
+			"item": [
+				{ "name": "List Users", "request": { "method": "GET", "url": "{{host}}/api/admin/users", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Get User By ID", "request": { "method": "GET", "url": "{{host}}/api/admin/users/{{userId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Suspend User", "request": { "method": "PATCH", "url": "{{host}}/api/admin/users/{{userId}}/suspend", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Reinstate User", "request": { "method": "PATCH", "url": "{{host}}/api/admin/users/{{userId}}/reinstate", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Delete User", "request": { "method": "DELETE", "url": "{{host}}/api/admin/users/{{userId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "List Content", "request": { "method": "GET", "url": "{{host}}/api/admin/content", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Approve Content", "request": { "method": "PATCH", "url": "{{host}}/api/admin/content/{{contentId}}/approve", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Reject Content", "request": { "method": "PATCH", "url": "{{host}}/api/admin/content/{{contentId}}/reject", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Delete Content", "request": { "method": "DELETE", "url": "{{host}}/api/admin/content/{{contentId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Audit Log", "request": { "method": "GET", "url": "{{host}}/api/admin/audit-log", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Dashboard Stats", "request": { "method": "GET", "url": "{{host}}/api/admin/dashboard-stats", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "List Disputes", "request": { "method": "GET", "url": "{{host}}/api/admin/disputes", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Resolve Dispute", "request": { "method": "PATCH", "url": "{{host}}/api/admin/disputes/{{disputeId}}/resolve", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } }
+			]
+		},
+		{
+			"name": "7. Search & Analytics",
+			"item": [
+				{ "name": "Search", "request": { "method": "GET", "url": "{{host}}/api/search" } },
+				{ "name": "Categories", "request": { "method": "GET", "url": "{{host}}/api/search/categories" } },
+				{ "name": "Profile Analytics", "request": { "method": "GET", "url": "{{host}}/api/analytics/profile", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } },
+				{ "name": "Recipe Analytics", "request": { "method": "GET", "url": "{{host}}/api/analytics/recipe/{{recipeId}}", "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }] } }
+			]
+		}
+	],
+	"variable": [
+		{ "key": "host", "value": "http://localhost:5000" },
+		{ "key": "token", "value": "" },
+		{ "key": "userId", "value": "" },
+		{ "key": "recipeId", "value": "" },
+		{ "key": "requestId", "value": "" },
+		{ "key": "commentId", "value": "" },
+		{ "key": "id", "value": "" },
+		{ "key": "contentId", "value": "" },
+		{ "key": "disputeId", "value": "" },
+		{ "key": "resetToken", "value": "" },
+		{ "key": "verifyToken", "value": "" },
+		{ "key": "slot", "value": "hero" }
+	]
+}
