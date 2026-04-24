@@ -148,8 +148,14 @@ const refreshAccessToken = async (req, res, next) => {
   }
 };
 
-const logout = async (req, res) =>
-  successResponse(res, 200, null, null, "Logged out successfully");
+const logout = async (req, res, next) => {
+  try {
+    await User.findByIdAndUpdate(req.user.userId, { refreshToken: null });
+    return successResponse(res, 200, null, null, "Logged out successfully");
+  } catch (error) {
+    next(error);
+  }
+};
 
 const forgotPassword = async (req, res, next) => {
   try {
@@ -191,7 +197,7 @@ const resetPassword = async (req, res, next) => {
       _id: decoded.userId,
       resetPasswordToken: hashToken(token),
       resetPasswordExpires: { $gt: Date.now() },
-    });
+    }).select("+resetPasswordToken +resetPasswordExpires");
 
     if (!user) {
       return errorResponse(res, 400, "Invalid or expired reset link", "INVALID_TOKEN");
@@ -212,7 +218,6 @@ const verifyEmail = async (req, res, next) => {
   try {
     const { token } = req.params;
 
-    // Verify JWT
     let decoded;
     try {
       decoded = jwt.verify(token, JWT_VERIFICATION_SECRET);
@@ -220,23 +225,24 @@ const verifyEmail = async (req, res, next) => {
       return errorResponse(res, 400, "Invalid or expired verification link", "INVALID_TOKEN");
     }
 
+    const hashedToken = hashToken(token);
+
     const user = await User.findOne({
       _id: decoded.userId,
-      verificationToken: hashToken(token),
-    });
+      verificationToken: hashedToken,
+    }).select("+verificationToken");
 
     if (!user) {
-      return errorResponse(res, 400, "Invalid verification link", "INVALID_TOKEN");
+      return errorResponse(res, 400, "Invalid or expired verification link", "INVALID_TOKEN");
     }
 
     user.isEmailVerified = true;
     user.verificationToken = undefined;
     await user.save();
 
-    // Send Welcome Email only after email is verified
-    await sendWelcomeEmail(user);
+    sendWelcomeEmail(user);
 
-    return successResponse(res, 200, null, null, "Email verified successfully! You can now log in to your dashboard.");
+    return successResponse(res, 200, null, null, "Email verified successfully");
   } catch (error) {
     next(error);
   }

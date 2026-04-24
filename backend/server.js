@@ -1,3 +1,4 @@
+require("dotenv").config(); // ← ADD THIS AS FIRST LINE
 const app = require('./src/app');
 const { PORT } = require('./src/config/config');
 
