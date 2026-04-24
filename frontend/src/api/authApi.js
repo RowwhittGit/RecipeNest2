@@ -7,3 +7,5 @@ const api = axios.create({
 export const registerUser = (data) => api.post('/api/auth/register', data)
 export const loginUser = (data) => api.post('/api/auth/login', data)
 export const googleLoginUser = (idToken) => api.post('/api/auth/google', { idToken })
+export const forgotPasswordUser = (email) => api.post('/api/auth/forgot-password', { email })
+export const resetPasswordUser = (token, password) => api.post(`/api/auth/reset-password/${token}`, { password })

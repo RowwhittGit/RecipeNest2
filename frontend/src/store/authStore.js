@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { registerUser, loginUser, googleLoginUser } from '../api/authApi'
+import { registerUser, loginUser, googleLoginUser, forgotPasswordUser, resetPasswordUser } from '../api/authApi'
 
 const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem('user')) || null,
@@ -57,6 +57,30 @@ const useAuthStore = create((set) => ({
     localStorage.removeItem('token')
     localStorage.removeItem('user')
     set({ user: null, token: null, error: null })
+  },
+
+  forgotPassword: async (email) => {
+    set({ loading: true, error: null })
+    try {
+      await forgotPasswordUser(email)
+      set({ loading: false })
+      return true
+    } catch (err) {
+      set({ error: err.response?.data?.message || 'Failed to send reset link', loading: false })
+      return false
+    }
+  },
+
+  resetPassword: async (token, password) => {
+    set({ loading: true, error: null })
+    try {
+      await resetPasswordUser(token, password)
+      set({ loading: false })
+      return true
+    } catch (err) {
+      set({ error: err.response?.data?.message || 'Password reset failed', loading: false })
+      return false
+    }
   },
 }))
 

@@ -5,6 +5,8 @@ import LoginPage from '../pages/Login'
 import RegisterPage from '../pages/Register'
 import VerifyNoticePage from '../pages/VerifyNotice'
 import VerifyEmailPage from '../pages/VerifyEmail'
+import ForgotPasswordPage from '../pages/ForgotPassword'
+import ResetPasswordPage from '../pages/ResetPassword'
 
 /**
  * AppRoutes
@@ -30,6 +32,8 @@ export default function AppRoutes() {
       <Route path="/register" element={<RegisterPage />} />
       <Route path="/verify-notice" element={<VerifyNoticePage />} />
       <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
 
       {/* ── Catch-all ──────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />
