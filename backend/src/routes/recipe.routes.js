@@ -21,10 +21,7 @@ router.post("/", verifyToken, controller.createRecipe);
 router.put("/:recipeId", verifyToken, controller.updateRecipe);
 router.delete("/:recipeId", verifyToken, controller.deleteRecipe);
 
-// Image uploads — owner only (checked inside controller)
-router.post("/:recipeId/images/hero", verifyToken, recipeImageUpload, controller.uploadHeroImage);
-router.post("/:recipeId/images/steps", verifyToken, recipeImageUpload, controller.uploadStepImages);
-router.post("/:recipeId/images/result", verifyToken, recipeImageUpload, controller.uploadResultImage);
-router.delete("/:recipeId/images/:slot", verifyToken, controller.deleteImageSlot);
+// Image upload — returns URL to use in create/update recipe body
+router.post("/images/upload", verifyToken, recipeImageUpload, controller.uploadRecipeImage);
 
 module.exports = router;

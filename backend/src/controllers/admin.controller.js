@@ -2,7 +2,6 @@ const User = require("../models/user.model");
 const Recipe = require("../models/recipe.model");
 const AuditLog = require("../models/auditLog.model");
 const { writeAuditLog } = require("../services/audit.service");
-const { sendModerationEmail } = require("../services/email.service");
 const { successResponse, errorResponse } = require("../utils/apiResponse");
 
 const listUsers = async (req, res, next) => {
@@ -99,10 +98,7 @@ const deleteUser = async (req, res, next) => {
 
 const listContent = async (req, res, next) => {
   try {
-    const status = req.query.status || "all";
-    const query = {};
-    if (status === "pending") query.status = "pending";
-    if (status === "flagged") query.isFlagged = true;
+    const query = req.query.status === "flagged" ? { isFlagged: true } : {};
 
     const content = await Recipe.find(query)
       .sort("-updatedAt")
@@ -117,18 +113,18 @@ const approveContent = async (req, res, next) => {
   try {
     const recipe = await Recipe.findByIdAndUpdate(
       req.params.contentId,
-      { status: "published", isFlagged: false },
+      { isFlagged: false },
       { new: true }
     );
     if (!recipe) return errorResponse(res, 404, "Content not found", "NOT_FOUND");
     await writeAuditLog({
       adminId: req.user.userId,
-      action: "APPROVE_RECIPE",
+      action: "UNFLAG_RECIPE",
       targetType: "Recipe",
       targetId: recipe._id,
-      details: "Admin approved content",
+      details: "Admin cleared flag on content",
     });
-    return successResponse(res, 200, recipe, null, "Content approved");
+    return successResponse(res, 200, recipe, null, "Content unflagged");
   } catch (error) {
     next(error);
   }
@@ -138,24 +134,18 @@ const rejectContent = async (req, res, next) => {
   try {
     const recipe = await Recipe.findByIdAndUpdate(
       req.params.contentId,
-      { status: "rejected", isFlagged: false },
+      { status: "draft", isFlagged: false },
       { new: true }
-    ).populate("authorId", "firstName lastName email");
-
+    );
     if (!recipe) return errorResponse(res, 404, "Content not found", "NOT_FOUND");
-
     await writeAuditLog({
       adminId: req.user.userId,
-      action: "REJECT_RECIPE",
+      action: "UNPUBLISH_RECIPE",
       targetType: "Recipe",
       targetId: recipe._id,
-      details: "Admin rejected content",
+      details: "Admin unpublished content",
     });
-
-    if (req.body.notifyAuthor && recipe.authorId) {
-      await sendModerationEmail(recipe.authorId, "rejected");
-    }
-    return successResponse(res, 200, recipe, null, "Content rejected");
+    return successResponse(res, 200, recipe, null, "Content unpublished");
   } catch (error) {
     next(error);
   }
@@ -265,15 +255,16 @@ const resolveDispute = async (req, res, next) => {
 
     await dispute.save();
 
-    // If action was content removal, update the recipe or comment
+    // If action was content removal, delete or unpublish the recipe/comment
     if (actionTaken === "Content Removed") {
       if (dispute.targetType === "Comment") {
+        const Comment = require("../models/comment.model");
         const comment = await Comment.findByIdAndDelete(dispute.commentId);
         if (comment) {
           await Recipe.findByIdAndUpdate(comment.recipeId, { $inc: { commentCount: -1 } });
         }
       } else {
-        await Recipe.findByIdAndUpdate(dispute.recipeId, { status: "rejected", isFlagged: false });
+        await Recipe.findByIdAndUpdate(dispute.recipeId, { status: "draft", isFlagged: false });
       }
     }
 

@@ -4,7 +4,7 @@ const User = require("../models/user.model");
 const View = require("../models/view.model");
 const Like = require("../models/like.model");
 const Save = require("../models/save.model");
-const { uploadBuffer, deleteAsset } = require("../services/cloudinary.service");
+const { uploadBuffer } = require("../services/cloudinary.service");
 const { notifyFollowers } = require("../services/notification.service");
 const { successResponse, errorResponse } = require("../utils/apiResponse");
 
@@ -204,17 +204,17 @@ const getPersonalizedFeed = async (req, res, next) => {
       authorId: { $in: [...followingIds, req.user?.userId].filter(Boolean) }
     };
 
-    // 2. Discover Trending (Popular content not from following)
-    const discoveryQuery = {
-      status: "published",
-      authorId: { $nin: priorityQuery.authorId },
-      likeCount: { $gte: 2 } // Only show "proven" content in trending
-    };
-
-    // Exclude private accounts from the discovery query
+    // Exclude private accounts from discovery
     const privateUsers = await User.find({ isPrivate: true }).select("_id");
     const privateIds = privateUsers.map(u => u._id);
-    discoveryQuery.authorId.$nin.push(...privateIds);
+
+    // 2. Discover Trending (Popular content not from following)
+    const excludeIds = [...(priorityQuery.authorId.$in || []), ...privateIds];
+    const discoveryQuery = {
+      status: "published",
+      authorId: { $nin: excludeIds },
+      likeCount: { $gte: 2 },
+    };
 
     // Initial load: Mix of both
     const [followingRecipes, trendingRecipes] = await Promise.all([
@@ -331,113 +331,20 @@ const shareRecipe = async (req, res, next) => {
   }
 };
 
-const uploadHeroImage = async (req, res, next) => {
+const uploadRecipeImage = async (req, res, next) => {
   try {
     const file = req.files?.hero?.[0];
     if (!file) return errorResponse(res, 400, "hero image required", "VALIDATION_ERROR");
-    const recipe = await Recipe.findById(req.params.recipeId);
-    if (!recipe) return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
-    if (recipe.authorId.toString() !== req.user.userId) {
-      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
-    }
 
     const result = await uploadBuffer({
       buffer: file.buffer,
-      folder: `recipenest/recipes/${recipe._id}`,
+      folder: "recipenest/recipes",
     });
-    if (recipe.mainImagePublicId) await deleteAsset(recipe.mainImagePublicId);
 
-    recipe.mainImage = result.secure_url;
-    recipe.mainImagePublicId = result.public_id;
-    await recipe.save();
-    return successResponse(res, 200, recipe, null, "Hero image uploaded");
-  } catch (error) {
-    next(error);
-  }
-};
-
-const uploadStepImages = async (req, res, next) => {
-  try {
-    const files = req.files?.steps || [];
-    if (files.length === 0) return errorResponse(res, 400, "steps images required", "VALIDATION_ERROR");
-    const recipe = await Recipe.findById(req.params.recipeId);
-    if (!recipe) return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
-    if (recipe.authorId.toString() !== req.user.userId) {
-      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
-    }
-
-    for (const file of files) {
-      const result = await uploadBuffer({
-        buffer: file.buffer,
-        folder: `recipenest/recipes/${recipe._id}`,
-      });
-      recipe.stepImages.push(result.secure_url);
-      recipe.stepImagePublicIds.push(result.public_id);
-    }
-    recipe.stepImages = recipe.stepImages.slice(0, 5);
-    recipe.stepImagePublicIds = recipe.stepImagePublicIds.slice(0, 5);
-    await recipe.save();
-    return successResponse(res, 200, recipe, null, "Step images uploaded");
-  } catch (error) {
-    next(error);
-  }
-};
-
-const uploadResultImage = async (req, res, next) => {
-  try {
-    const file = req.files?.result?.[0];
-    if (!file) return errorResponse(res, 400, "result image required", "VALIDATION_ERROR");
-    const recipe = await Recipe.findById(req.params.recipeId);
-    if (!recipe) return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
-    if (recipe.authorId.toString() !== req.user.userId) {
-      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
-    }
-
-    const result = await uploadBuffer({
-      buffer: file.buffer,
-      folder: `recipenest/recipes/${recipe._id}`,
-    });
-    if (recipe.resultImagePublicId) await deleteAsset(recipe.resultImagePublicId);
-
-    recipe.resultImage = result.secure_url;
-    recipe.resultImagePublicId = result.public_id;
-    await recipe.save();
-    return successResponse(res, 200, recipe, null, "Result image uploaded");
-  } catch (error) {
-    next(error);
-  }
-};
-
-const deleteImageSlot = async (req, res, next) => {
-  try {
-    const { slot } = req.params;
-    const recipe = await Recipe.findById(req.params.recipeId);
-    if (!recipe) return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
-    if (recipe.authorId.toString() !== req.user.userId) {
-      return errorResponse(res, 403, "Not authorized", "FORBIDDEN");
-    }
-
-    if (slot === "hero") {
-      await deleteAsset(recipe.mainImagePublicId);
-      recipe.mainImage = "";
-      recipe.mainImagePublicId = "";
-    } else if (slot === "result") {
-      await deleteAsset(recipe.resultImagePublicId);
-      recipe.resultImage = "";
-      recipe.resultImagePublicId = "";
-    } else {
-      const index = Number(slot);
-      if (Number.isNaN(index) || index < 0 || index >= recipe.stepImages.length) {
-        return errorResponse(res, 400, "Invalid slot", "VALIDATION_ERROR");
-      }
-      const publicId = recipe.stepImagePublicIds[index];
-      await deleteAsset(publicId);
-      recipe.stepImages.splice(index, 1);
-      recipe.stepImagePublicIds.splice(index, 1);
-    }
-
-    await recipe.save();
-    return successResponse(res, 200, recipe, null, "Image removed");
+    return successResponse(res, 200, {
+      url: result.secure_url,
+      publicId: result.public_id,
+    }, null, "Image uploaded");
   } catch (error) {
     next(error);
   }
@@ -453,8 +360,5 @@ module.exports = {
   updateRecipe,
   deleteRecipe,
   shareRecipe,
-  uploadHeroImage,
-  uploadStepImages,
-  uploadResultImage,
-  deleteImageSlot,
+  uploadRecipeImage,
 };

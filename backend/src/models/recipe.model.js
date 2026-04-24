@@ -3,9 +3,8 @@ const slugify = require("../utils/slugify");
 
 const IngredientSchema = new mongoose.Schema(
   {
-    name: { type: String, required: true, trim: true },
-    quantity: { type: String, default: "" },
-    unit: { type: String, default: "" },
+    order: { type: Number, required: true },
+    ingredient: { type: String, required: true },
   },
   { _id: false }
 );
@@ -14,7 +13,6 @@ const StepSchema = new mongoose.Schema(
   {
     order: { type: Number, required: true },
     instruction: { type: String, required: true },
-    imageUrl: { type: String, default: "" },
   },
   { _id: false }
 );
@@ -33,14 +31,9 @@ const RecipeSchema = new mongoose.Schema(
     ingredients: [IngredientSchema],
     steps: [StepSchema],
     mainImage: { type: String, default: "" },
-    mainImagePublicId: { type: String, default: "" },
-    stepImages: [{ type: String }],
-    stepImagePublicIds: [{ type: String }],
-    resultImage: { type: String, default: "" },
-    resultImagePublicId: { type: String, default: "" },
     status: {
       type: String,
-      enum: ["draft", "pending", "published", "rejected"],
+      enum: ["draft", "published"],
       default: "draft",
     },
     likeCount: { type: Number, default: 0 },
@@ -61,12 +54,12 @@ RecipeSchema.index({ cookTime: 1 });
 RecipeSchema.index({
   title: "text",
   description: "text",
-  "ingredients.name": "text",
+  "ingredients.ingredient": "text",
 });
 
 RecipeSchema.pre("save", function preSave() {
   if (this.isModified("title")) {
-    this.slug = slugify(this.title);
+    this.slug = `${slugify(this.title)}-${Date.now().toString(36)}`;
   }
 });
 

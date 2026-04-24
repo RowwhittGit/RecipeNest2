@@ -15,11 +15,7 @@ const upload = multer({
   },
 });
 
-const recipeImageUpload = upload.fields([
-  { name: "hero", maxCount: 1 },
-  { name: "steps", maxCount: 5 },
-  { name: "result", maxCount: 1 },
-]);
+const recipeImageUpload = upload.fields([{ name: "hero", maxCount: 1 }]);
 
 const avatarUpload = upload.fields([{ name: "avatar", maxCount: 1 }]);
 

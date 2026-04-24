@@ -61,7 +61,7 @@ const getMyProfile = async (req, res, next) => {
     
     const recipeCount = await Recipe.countDocuments({ authorId: req.user.userId });
     const publishedCount = await Recipe.countDocuments({ authorId: req.user.userId, status: "published" });
-    const draftCount = await Recipe.countDocuments({ authorId: req.user.userId, status: { $in: ["draft", "pending", "rejected"] } });
+    const draftCount = await Recipe.countDocuments({ authorId: req.user.userId, status: "draft" });
 
     return successResponse(
       res,
