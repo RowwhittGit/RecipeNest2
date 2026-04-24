@@ -1,6 +1,8 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import LandingPage from '../pages/LandingPage'
 import HomePage from '../pages/Home'
+import LoginPage from '../pages/Login'
+import RegisterPage from '../pages/Register'
 
 /**
  * AppRoutes
@@ -21,6 +23,9 @@ export default function AppRoutes() {
 
       {/* ── Authenticated ──────────────────────────── */}
       <Route path="/home" element={<HomePage />} />
+
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
 
       {/* ── Catch-all ──────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />
