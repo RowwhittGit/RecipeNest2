@@ -5,6 +5,7 @@ import AuthCard from '../components/ui/AuthCard'
 import InputField from '../components/ui/InputField'
 import GoogleButton from '../components/ui/GoogleButton'
 import useAuthStore from '../store/authStore'
+import useGoogleLogin from '../hooks/useGoogleLogin'
 
 export default function RegisterPage() {
   const [form, setForm] = useState({
@@ -15,7 +16,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
   })
-  const { register, loading, error } = useAuthStore()
+  const { register, googleLogin, loading, error } = useAuthStore()
   const navigate = useNavigate()
 
   const handleChange = (e) => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
@@ -24,14 +25,19 @@ export default function RegisterPage() {
     e.preventDefault()
     const { confirmPassword, ...payload } = form
     const ok = await register(payload)
-    if (ok) navigate('/home')
+    if (ok) navigate('/verify-notice')
   }
+
+  const googleButtonRef = useGoogleLogin(async (idToken) => {
+    const ok = await googleLogin(idToken)
+    if (ok) navigate('/home')
+  })
 
   return (
     <AuthCard subtitle="Join our culinary community!" tapePosition="left">
       <h1 className="text-[#1e2d4a] font-black text-2xl text-center mb-6">Create your account</h1>
 
-      <GoogleButton />
+      <GoogleButton ref={googleButtonRef} />
 
       <div className="flex items-center gap-3 my-5">
         <div className="flex-1 h-px bg-gray-200" />

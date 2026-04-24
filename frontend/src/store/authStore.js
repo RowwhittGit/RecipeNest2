@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { registerUser, loginUser } from '../api/authApi'
+import { registerUser, loginUser, googleLoginUser } from '../api/authApi'
 
 const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem('user')) || null,
@@ -10,11 +10,8 @@ const useAuthStore = create((set) => ({
   register: async (data) => {
     set({ loading: true, error: null })
     try {
-      const res = await registerUser(data)
-      const { user, accessToken } = res.data.data
-      localStorage.setItem('token', accessToken)
-      localStorage.setItem('user', JSON.stringify(user))
-      set({ user, token: accessToken, loading: false })
+      await registerUser(data)
+      set({ loading: false })
       return true
     } catch (err) {
       set({ error: err.response?.data?.message || 'Registration failed', loading: false })
@@ -33,6 +30,25 @@ const useAuthStore = create((set) => ({
       return true
     } catch (err) {
       set({ error: err.response?.data?.message || 'Login failed', loading: false })
+      return false
+    }
+  },
+
+  googleLogin: async (idToken) => {
+    if (!idToken) {
+      set({ error: 'Google login failed: missing token', loading: false })
+      return false
+    }
+    set({ loading: true, error: null })
+    try {
+      const res = await googleLoginUser(idToken)
+      const { user, accessToken } = res.data.data
+      localStorage.setItem('token', accessToken)
+      localStorage.setItem('user', JSON.stringify(user))
+      set({ user, token: accessToken, loading: false })
+      return true
+    } catch (err) {
+      set({ error: err.response?.data?.message || 'Google login failed', loading: false })
       return false
     }
   },

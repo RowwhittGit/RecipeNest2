@@ -1,13 +1,12 @@
-import { FcGoogle } from 'react-icons/fc'
+import { forwardRef } from 'react'
 
-export default function GoogleButton() {
+const GoogleButton = forwardRef(function GoogleButton(_, ref) {
   return (
-    <button
-      type="button"
-      className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-semibold text-[#1e2d4a] hover:bg-gray-50 transition-colors"
-    >
-      <FcGoogle className="text-xl" />
-      Continue with Google
-    </button>
+    <div
+      ref={ref}
+      className="w-full flex justify-center"
+    />
   )
-}
+})
+
+export default GoogleButton
