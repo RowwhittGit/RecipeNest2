@@ -9,6 +9,7 @@ import ForgotPasswordPage from '../pages/ForgotPassword'
 import ResetPasswordPage from '../pages/ResetPassword'
 import ChefsPage from '../pages/ChefsPage'
 import RecipeDetail from '../pages/RecipeDetail'
+import CreateRecipePage from '../pages/CreateRecipe'
 
 /**
  * AppRoutes
@@ -30,6 +31,7 @@ export default function AppRoutes() {
       {/* ── Authenticated ──────────────────────────── */}
       <Route path="/home" element={<HomePage />} />
       <Route path="/recipes/:id" element={<RecipeDetail />} />
+      <Route path="/recipes/create" element={<CreateRecipePage />} />
       <Route path="/chefs" element={<ChefsPage />} />
 
       <Route path="/login" element={<LoginPage />} />
