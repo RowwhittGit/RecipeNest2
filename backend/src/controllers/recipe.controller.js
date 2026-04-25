@@ -73,7 +73,7 @@ const listRecipes = async (req, res, next) => {
       .sort(sort)
       .skip(skip)
       .limit(limit)
-      .populate("authorId", "firstName lastName username isProfessional");
+      .populate("authorId", "firstName lastName username isProfessional profileImage");
 
     return successResponse(
       res,
@@ -90,7 +90,7 @@ const listRecipes = async (req, res, next) => {
 const getRecipeById = async (req, res, next) => {
   try {
     const recipe = await Recipe.findById(req.params.recipeId)
-      .populate("authorId", "firstName lastName username isProfessional isPrivate");
+      .populate("authorId", "firstName lastName username isProfessional isPrivate profileImage");
 
     if (!recipe || recipe.status !== "published") {
       return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
@@ -218,8 +218,8 @@ const getPersonalizedFeed = async (req, res, next) => {
 
     // Initial load: Mix of both
     const [followingRecipes, trendingRecipes] = await Promise.all([
-      Recipe.find(priorityQuery).sort("-createdAt").limit(limit).populate("authorId", "firstName lastName username"),
-      Recipe.find(discoveryQuery).sort("-likeCount -createdAt").limit(limit).populate("authorId", "firstName lastName username")
+      Recipe.find(priorityQuery).sort("-createdAt").limit(limit).populate("authorId", "firstName lastName username profileImage"),
+      Recipe.find(discoveryQuery).sort("-likeCount -createdAt").limit(limit).populate("authorId", "firstName lastName username profileImage")
     ]);
 
     // Simple interleaving for a dynamic feel

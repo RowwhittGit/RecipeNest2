@@ -1,19 +1,23 @@
 import { create } from 'zustand';
-import { fetchRecipesApi, saveRecipeApi, unsaveRecipeApi } from '../api/recipeApi';
+import { fetchRecipesApi, searchApi } from '../api/recipeApi';
 import toast from 'react-hot-toast';
 
-export const useRecipeStore = create((set) => ({
+export const useRecipeStore = create((set, get) => ({
   recipes: [],
   loading: false,
   error: null,
   page: 1,
   hasMore: true,
+  searchQuery: '',
+  activeCuisine: '',
 
   fetchRecipes: async (pageArg = 1) => {
+    const { searchQuery, activeCuisine } = get();
     try {
       set({ loading: true, error: null });
-      const { data } = await fetchRecipesApi(pageArg, 10);
-      
+      const params = {};
+      if (activeCuisine) params.cuisine = activeCuisine;
+      const { data } = await fetchRecipesApi(pageArg, 10, params);
       if (data.success) {
         set((state) => ({
           recipes: pageArg === 1 ? data.data : [...state.recipes, ...data.data],
@@ -25,35 +29,33 @@ export const useRecipeStore = create((set) => ({
         set({ loading: false });
       }
     } catch (err) {
-      set({ 
-        error: err.response?.data?.message || 'Failed to fetch recipes',
-        loading: false 
-      });
+      set({ error: err.response?.data?.message || 'Failed to fetch recipes', loading: false });
       toast.error('Failed to load recipes');
     }
   },
 
-  saveRecipe: async (recipeId) => {
+  search: async (q) => {
+    if (!q.trim()) {
+      set({ searchQuery: '', activeCuisine: '' });
+      get().fetchRecipes(1);
+      return;
+    }
     try {
-      const { data } = await saveRecipeApi(recipeId);
-      if (data.success) {
-        toast.success('Recipe saved');
-      }
+      set({ loading: true, error: null, searchQuery: q });
+      const { data } = await searchApi(q);
+      set({
+        recipes: data.data?.recipes || [],
+        page: 1,
+        hasMore: false,
+        loading: false
+      });
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to save recipe');
-      throw err;
+      set({ error: 'Search failed', loading: false });
     }
   },
 
-  unsaveRecipe: async (recipeId) => {
-    try {
-      const { data } = await unsaveRecipeApi(recipeId);
-      if (data.success) {
-        toast.success('Recipe removed');
-      }
-    } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to remove recipe');
-      throw err;
-    }
-  }
+  setCuisine: (cuisine) => {
+    set({ activeCuisine: cuisine, searchQuery: '' });
+    get().fetchRecipes(1);
+  },
 }));

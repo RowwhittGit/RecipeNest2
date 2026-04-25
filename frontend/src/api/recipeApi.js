@@ -2,9 +2,23 @@ import axios from 'axios';
 
 const getToken = () => localStorage.getItem('token') || '';
 
-export const fetchRecipesApi = (page = 1, limit = 10) => {
+export const fetchRecipesApi = (page = 1, limit = 10, params = {}) => {
   return axios.get(`/api/recipes`, {
-    params: { page, limit }
+    params: { page, limit, ...params }
+  });
+};
+
+export const searchApi = (q) => {
+  return axios.get(`/api/search`, { params: { q } });
+};
+
+export const getCommentsApi = (recipeId) => {
+  return axios.get(`/api/social/comments/${recipeId}`);
+};
+
+export const addCommentApi = (recipeId, body) => {
+  return axios.post(`/api/social/comments/${recipeId}`, body, {
+    headers: { Authorization: `Bearer ${getToken()}` }
   });
 };
 

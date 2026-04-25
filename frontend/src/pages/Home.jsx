@@ -8,11 +8,11 @@ import { Toaster } from 'react-hot-toast'
 import { useRecipeStore } from '../store/recipeStore'
 
 export default function HomePage() {
-  const { fetchRecipes } = useRecipeStore();
+  const { fetchRecipes, searchQuery } = useRecipeStore();
 
   useEffect(() => {
-    fetchRecipes(1);
-  }, [fetchRecipes]);
+    if (!searchQuery) fetchRecipes(1);
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#f5f5f0]">
