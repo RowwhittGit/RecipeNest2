@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import DynamicList from './DynamicList';
-import { uploadImageApi, createRecipeApi } from '../api/recipeApi';
+import { uploadImageApi, createRecipeApi, updateRecipeApi } from '../api/recipeApi';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 
@@ -47,7 +47,7 @@ function normaliseSteps(raw = []) {
 }
 
 // ─── RecipeForm ────────────────────────────────────────────────────────────────
-export default function RecipeForm({ initialData = null, submitLabel = 'Publish Recipe', onCancel }) {
+export default function RecipeForm({ initialData = null, recipeId = null, submitLabel = 'Publish Recipe', onCancel }) {
   const imageInputRef = useRef(null);
   const imageFileRef  = useRef(null); // stores the raw File for upload
   const navigate = useNavigate();
@@ -90,7 +90,7 @@ export default function RecipeForm({ initialData = null, submitLabel = 'Publish 
     setSubmitting(true);
     try {
       // ── Step 1: upload image if selected ──────────────────────────────────
-      let mainImage = '';
+      let mainImage = initialData?.mainImage || '';
       if (imageFileRef.current) {
         const uploadRes = await uploadImageApi(imageFileRef.current);
         mainImage = uploadRes.data.data.url;
@@ -111,10 +111,18 @@ export default function RecipeForm({ initialData = null, submitLabel = 'Publish 
         steps:       filledSteps.map((instruction, i) => ({ order: i + 1, instruction })),
       };
 
-      // ── Step 3: create recipe ─────────────────────────────────────────────
-      const res = await createRecipeApi(payload);
-      toast.success(status === 'published' ? 'Recipe published!' : 'Saved as draft!');
-      navigate(`/recipes/${res.data.data._id}`);
+      // ── Step 3: create or update recipe ──────────────────────────────────
+      let res;
+      if (recipeId) {
+        res = await updateRecipeApi(recipeId, payload);
+        toast.success(status === 'published' ? 'Recipe updated!' : 'Saved as draft!');
+        // Drafts are not publicly viewable — go back to profile
+        navigate(status === 'published' ? `/recipes/${res.data.data._id}` : '/my-profile');
+      } else {
+        res = await createRecipeApi(payload);
+        toast.success(status === 'published' ? 'Recipe published!' : 'Saved as draft!');
+        navigate(status === 'published' ? `/recipes/${res.data.data._id}` : '/my-profile');
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Something went wrong');
     } finally {

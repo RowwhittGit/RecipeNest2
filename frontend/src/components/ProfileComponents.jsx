@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiHeart, FiMessageCircle, FiX } from 'react-icons/fi';
+import { FiHeart, FiMessageCircle, FiX, FiEdit2 } from 'react-icons/fi';
 
 // ─── ProfileAvatar ─────────────────────────────────────────────────────────────
 export function ProfileAvatar({ src, name }) {
@@ -31,7 +31,7 @@ export function ProfileStatBlock({ value, label, onClick }) {
 }
 
 // ─── RecipeGridItem ────────────────────────────────────────────────────────────
-export function RecipeGridItem({ recipe }) {
+export function RecipeGridItem({ recipe, onEdit }) {
   const navigate = useNavigate();
   return (
     <div
@@ -53,6 +53,15 @@ export function RecipeGridItem({ recipe }) {
           <span>{recipe.commentCount ?? 0}</span>
         </div>
       </div>
+      {/* Edit button — only shown when onEdit is provided */}
+      {onEdit && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onEdit(recipe._id); }}
+          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white shadow-sm"
+        >
+          <FiEdit2 className="w-3.5 h-3.5 text-[#1e2d4a]" />
+        </button>
+      )}
       {recipe.status === 'draft' && (
         <span className="absolute top-2 left-2 bg-[#1e2d4a]/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">Draft</span>
       )}

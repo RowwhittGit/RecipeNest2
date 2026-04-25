@@ -1,4 +1,5 @@
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import HomeNavbar from '../components/HomeNavbar';
 import Footer from '../components/Footer';
 import RecipeForm from '../components/RecipeForm';
@@ -6,37 +7,47 @@ import tomato from '../images/tomato.png';
 import lemon from '../images/lemon.png';
 import redChilly from '../images/red_chilly.png';
 import greenHerb from '../images/green_herb.png';
-
-// Mock data matching the backend shape (ingredients/steps as objects with order)
-// Replace with real API data when integrating
-const MOCK_RECIPE = {
-  title: 'Steamed Momo Dumplings',
-  description: 'Rich and hearty ramen from scratch...',
-  cuisineType: 'Asian',
-  difficulty: 'Medium',
-  prepTime: 30,
-  cookTime: 20,
-  youtubeVideoUrl: 'https://www.youtube.com/watch?v=example',
-  mainImage: null,
-  ingredients: [
-    { order: 1, ingredient: '2 cups all-purpose flour' },
-    { order: 2, ingredient: '1 cup finely chopped cabbage' },
-    { order: 3, ingredient: '1/2 cup ground chicken' },
-    { order: 4, ingredient: '1/2 cup finely chopped onions' },
-    { order: 5, ingredient: '2 cloves garlic, minced' },
-    { order: 6, ingredient: '1 tablespoon soy sauce' },
-    { order: 7, ingredient: '1 tablespoon sesame oil' },
-  ],
-  steps: [
-    { order: 1, instruction: 'e.g., Boil the broth for 2 hours.' },
-    { order: 2, instruction: 'e.g., Boil the broth for 2 hours.' },
-    { order: 3, instruction: 'e.g., Boil the broth for 2 hours.' },
-    { order: 4, instruction: 'e.g., Boil the broth for 2 hours.' },
-  ],
-};
+import { getMyRecipeByIdApi } from '../api/recipeApi';
 
 export default function EditRecipePage() {
+  const { id } = useParams();
   const navigate = useNavigate();
+
+  const [recipe, setRecipe] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    if (!id) return;
+    getMyRecipeByIdApi(id)
+      .then(res => setRecipe(res.data.data.recipe))
+      .catch(() => setError('Failed to load recipe.'))
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#f5f3e8]">
+        <HomeNavbar />
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-10 h-10 border-4 border-[#1e2d4a]/20 border-t-[#1e2d4a] rounded-full animate-spin" />
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !recipe) {
+    return (
+      <div className="min-h-screen flex flex-col bg-[#f5f3e8]">
+        <HomeNavbar />
+        <div className="flex-1 flex items-center justify-center">
+          <p className="text-red-500 font-bold">{error || 'Recipe not found.'}</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f5f3e8] flex flex-col">
@@ -58,7 +69,8 @@ export default function EditRecipePage() {
             </p>
           </div>
           <RecipeForm
-            initialData={MOCK_RECIPE}
+            initialData={recipe}
+            recipeId={id}
             submitLabel="Update Recipe"
             onCancel={() => navigate(-1)}
           />

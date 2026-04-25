@@ -20,8 +20,14 @@ export const getRecipeByIdApi = (recipeId) =>
 export const createRecipeApi = (data) =>
   authFetch((token) => axios.post('/api/recipes', data, { headers: authHeader(token) }));
 
+export const updateRecipeApi = (recipeId, data) =>
+  authFetch((token) => axios.put(`/api/recipes/${recipeId}`, data, { headers: authHeader(token) }));
+
 export const getMyRecipesApi = () =>
   authFetch((token) => axios.get('/api/recipes/my/all', { headers: authHeader(token) }));
+
+export const getMyRecipeByIdApi = (recipeId) =>
+  authFetch((token) => axios.get(`/api/recipes/my/${recipeId}`, { headers: authHeader(token) }));
 
 export const uploadImageApi = (file) => {
   const formData = new FormData();

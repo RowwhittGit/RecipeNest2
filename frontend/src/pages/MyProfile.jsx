@@ -147,8 +147,8 @@ export default function MyProfilePage() {
                     <button onClick={() => navigate('/my-profile/edit')} className="px-4 py-1.5 border-2 border-[#1e2d4a]/20 text-[#1e2d4a] font-bold text-xs rounded-md hover:bg-[#1e2d4a]/5 transition-colors">
                       Edit Profile
                     </button>
-                    <button onClick={() => setActiveTab('recipes')} className="px-4 py-1.5 bg-[#f5c518] text-[#1e2d4a] font-bold text-xs rounded-md hover:opacity-90 transition-opacity border-2 border-[#f5c518]">
-                      See Drafts
+                    <button onClick={() => navigate('/recipes/create')} className="px-4 py-1.5 bg-[#f5c518] text-[#1e2d4a] font-bold text-xs rounded-md hover:opacity-90 transition-opacity border-2 border-[#f5c518]">
+                      + Create
                     </button>
                     <button className="w-7 h-7 flex items-center justify-center text-[#1e2d4a]/40 hover:text-[#1e2d4a] transition-colors">
                       <FiSettings className="w-4 h-4" />
@@ -199,7 +199,13 @@ export default function MyProfilePage() {
                 </div>
               ) : tabContent[activeTab].length > 0 ? (
                 <div className="grid grid-cols-3 gap-2 md:gap-3">
-                  {tabContent[activeTab].map(r => <RecipeGridItem key={r._id} recipe={r} />)}
+                  {tabContent[activeTab].map(r => (
+                    <RecipeGridItem
+                      key={r._id}
+                      recipe={r}
+                      onEdit={activeTab === 'recipes' ? (id) => navigate(`/recipes/${id}/edit`) : undefined}
+                    />
+                  ))}
                 </div>
               ) : (
                 <div className="py-16 text-center text-[#1e2d4a]/40 font-semibold text-sm">

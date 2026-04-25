@@ -245,6 +245,21 @@ const myRecipes = async (req, res, next) => {
   }
 };
 
+const getMyRecipeById = async (req, res, next) => {
+  try {
+    const recipe = await Recipe.findOne({
+      _id: req.params.recipeId,
+      authorId: req.user.userId,
+    });
+    if (!recipe) {
+      return errorResponse(res, 404, "Recipe not found", "NOT_FOUND");
+    }
+    return successResponse(res, 200, { recipe }, null, "Recipe detail");
+  } catch (error) {
+    next(error);
+  }
+};
+
 const createRecipe = async (req, res, next) => {
   try {
     // 1. Double Submit Protection (Prevent accidental rapid multiple clicks)
@@ -353,6 +368,7 @@ const uploadRecipeImage = async (req, res, next) => {
 module.exports = {
   listRecipes,
   getRecipeById,
+  getMyRecipeById,
   getRecipesByUser,
   getPersonalizedFeed,
   myRecipes,

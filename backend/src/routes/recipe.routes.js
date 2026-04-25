@@ -17,6 +17,7 @@ router.post("/:recipeId/share", verifyToken, controller.shareRecipe);
 
 // Authenticated — any user can post
 router.get("/my/all", verifyToken, controller.myRecipes);
+router.get("/my/:recipeId", verifyToken, controller.getMyRecipeById);
 router.post("/", verifyToken, controller.createRecipe);
 router.put("/:recipeId", verifyToken, controller.updateRecipe);
 router.delete("/:recipeId", verifyToken, controller.deleteRecipe);
