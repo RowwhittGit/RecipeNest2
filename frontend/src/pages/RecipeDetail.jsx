@@ -7,7 +7,7 @@ import HomeNavbar from '../components/HomeNavbar';
 import Footer from '../components/Footer';
 
 import { getRecipeByIdApi } from '../api/recipeApi';
-import { useRecipeInteractionStore } from '../store/recipeInteractionStore';
+import { useSocialStore } from '../store/socialStore';
 
 export default function RecipeDetail() {
   const { id } = useParams();
@@ -16,19 +16,21 @@ export default function RecipeDetail() {
   const [recipe, setRecipe] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const [likeCount, setLikeCount] = useState(0); 
+  const [likeCount, setLikeCount] = useState(0);
   const [commentText, setCommentText] = useState('');
 
   const {
-    isLiked,
-    isSaved,
-    isFollowing,
-    initialize,
+    likedRecipeIds,
+    savedRecipeIds,
+    followingIds,
     toggleLike,
     toggleSave,
     toggleFollow
-  } = useRecipeInteractionStore();
+  } = useSocialStore();
+
+  const isLiked = likedRecipeIds.has(String(id));
+  const isSaved = savedRecipeIds.has(String(id));
+  const isFollowing = recipe?.authorId?._id ? followingIds.has(String(recipe.authorId._id)) : false;
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -37,13 +39,9 @@ export default function RecipeDetail() {
       try {
         const res = await getRecipeByIdApi(id);
         if (res.data?.data) {
-          const { recipe: fetchedRecipe, isLiked: apiIsLiked, isSaved: apiIsSaved } = res.data.data;
+          const { recipe: fetchedRecipe } = res.data.data;
           setRecipe(fetchedRecipe);
-          
           setLikeCount(fetchedRecipe.likeCount || 0);
-
-          // Initialise store states
-          initialize(apiIsLiked, apiIsSaved, false); // Initialize everything
         } else {
           setError('Recipe data missing from response.');
         }
@@ -56,7 +54,7 @@ export default function RecipeDetail() {
     if (id) {
       fetchRecipe();
     }
-  }, [id, initialize]);
+  }, [id]);
 
   const handleLike = () => {
     toggleLike(id);
@@ -227,10 +225,10 @@ export default function RecipeDetail() {
                 <button
                   onClick={handleLike}
                   className={`flex items-center gap-2 px-5 py-2 rounded-full font-semibold transition-colors ${
-                    isLiked ? 'bg-[#fdd228] text-[#2b3d63]' : 'bg-[#f5f5f0] text-[#2b3d63] hover:bg-[#e8e8e3]'
+                    isLiked ? 'bg-red-50 text-[#e53e3e]' : 'bg-[#f5f5f0] text-[#2b3d63] hover:bg-[#e8e8e3]'
                   }`}
                 >
-                  <FiHeart className={`w-4 h-4 ${isLiked ? 'fill-[#2b3d63]' : ''}`} />
+                  <FiHeart className={`w-4 h-4 ${isLiked ? 'fill-[#e53e3e]' : ''}`} />
                   <span>{likeCount}</span>
                 </button>
 

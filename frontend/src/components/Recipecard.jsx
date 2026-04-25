@@ -1,7 +1,6 @@
-import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiClock, FiUsers, FiBookmark } from 'react-icons/fi';
-import { useRecipeStore } from '../store/recipeStore';
+import { FiClock, FiUsers, FiBookmark, FiHeart } from 'react-icons/fi';
+import { useSocialStore } from '../store/socialStore';
 
 const tagColors = {
   'Asian': '#fdd228',
@@ -15,58 +14,51 @@ const tagColors = {
   'Popular': '#fdd228',
 }
 
-export default function RecipeCard({ 
-  _id, 
-  image, 
-  tag, 
-  title, 
-  time, 
-  servings,
-  isSaved: initialIsSaved = false
-}) {
+export default function RecipeCard({ _id, image, tag, title, time, servings }) {
   const navigate = useNavigate();
-  const [isSaved, setIsSaved] = useState(initialIsSaved);
-  const { saveRecipe, unsaveRecipe } = useRecipeStore();
+  const { savedRecipeIds, likedRecipeIds, toggleSave, toggleLike } = useSocialStore();
+  const isSaved = savedRecipeIds.has(String(_id));
+  const isLiked = likedRecipeIds.has(String(_id));
 
   const tagBg = tagColors[tag] || '#fdd228';
 
-  const handleBookmark = async (e) => {
+  const handleBookmark = (e) => {
     e.stopPropagation();
-    e.preventDefault();
-    
-    try {
-      if (isSaved) {
-        setIsSaved(false);
-        await unsaveRecipe(_id);
-      } else {
-        setIsSaved(true);
-        await saveRecipe(_id);
-      }
-    } catch {
-      // Revert optimistic update on error
-      setIsSaved(!isSaved);
-    }
+    toggleSave(_id);
+  };
+
+  const handleLike = (e) => {
+    e.stopPropagation();
+    toggleLike(_id);
   };
 
   return (
-    <div 
+    <div
       onClick={() => navigate(`/recipes/${_id}`)}
       className="bg-white rounded-md overflow-hidden border-[3px] border-[#2b3d63] shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer group flex flex-col p-2.5"
     >
       {/* Image Container */}
       <div className="relative h-48 sm:h-52 w-full bg-[#f4f4f4] overflow-hidden">
         {/* Bookmark Icon */}
-        <div 
+        <div
           onClick={handleBookmark}
           className="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md cursor-pointer hover:bg-gray-100 transition-colors"
         >
           <FiBookmark className={`w-4 h-4 transition-colors ${isSaved ? 'fill-[#2b3d63] text-[#2b3d63]' : 'text-[#2b3d63]'}`} />
         </div>
 
+        {/* Like Icon */}
+        <div
+          onClick={handleLike}
+          className="absolute top-2 right-2 z-10 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md cursor-pointer hover:bg-gray-100 transition-colors"
+        >
+          <FiHeart className={`w-4 h-4 transition-colors ${isLiked ? 'fill-[#e53e3e] text-[#e53e3e]' : 'text-[#2b3d63]'}`} />
+        </div>
+
         {/* Category Tag */}
         {tag && (
           <span
-            className="absolute top-2 right-2 z-10 rounded-full px-3 py-1 text-xs font-bold text-[#2b3d63] border-2 border-[#2b3d63]"
+            className="absolute bottom-2 left-2 z-10 rounded-full px-3 py-1 text-xs font-bold text-[#2b3d63] border-2 border-[#2b3d63]"
             style={{ backgroundColor: tagBg }}
           >
             {tag}

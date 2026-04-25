@@ -2,15 +2,23 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import logoSmall from '../images/logo_small.png'
 import useAuthStore from '../store/authStore'
+import { useSocialStore } from '../store/socialStore'
 
 export default function HomeNavbar() {
   const [activeNav, setActiveNav] = useState('Recipes')
   const { user, fetchProfile } = useAuthStore()
+  const { initializeSocialState } = useSocialStore()
   const navigate = useNavigate()
 
   useEffect(() => {
-    fetchProfile()
+    fetchProfile();
   }, [fetchProfile])
+
+  useEffect(() => {
+    if (user?._id) {
+      initializeSocialState(user._id);
+    }
+  }, [user?._id, initializeSocialState])
 
   const getInitials = () => {
     if (!user) return ''

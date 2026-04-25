@@ -14,6 +14,7 @@ router.get("/followers/:userId", controller.getFollowers);
 router.get("/following/:userId", controller.getFollowing);
 
 // Like
+router.get("/liked", verifyToken, controller.getLikedRecipes);
 router.post("/like/:recipeId", verifyToken, controller.likeRecipe);
 router.delete("/unlike/:recipeId", verifyToken, controller.unlikeRecipe);
 router.post("/like-comment/:commentId", verifyToken, controller.likeComment);

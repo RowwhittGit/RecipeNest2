@@ -49,3 +49,21 @@ export const unfollowUserApi = (userId) => {
     headers: { Authorization: `Bearer ${getToken()}` }
   });
 };
+
+export const getFollowingApi = (userId) => {
+  return axios.get(`/api/social/following/${userId}`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+};
+
+export const getSavedRecipesApi = () => {
+  return axios.get(`/api/social/saved`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+};
+
+export const getLikedRecipesApi = () => {
+  return axios.get(`/api/social/liked`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+};

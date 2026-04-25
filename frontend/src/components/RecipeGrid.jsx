@@ -29,7 +29,6 @@ export default function RecipeGrid() {
                   title={recipe.title}
                   time={timeStr}
                   servings={recipe.servings}
-                  isSaved={recipe.isSaved}
                 />
               );
             })}

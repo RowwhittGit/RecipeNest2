@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { registerUser, loginUser, googleLoginUser, forgotPasswordUser, resetPasswordUser, getUserProfile } from '../api/authApi'
+import { useSocialStore } from './socialStore'
 import toast from 'react-hot-toast'
 
 const useAuthStore = create((set, get) => ({
@@ -47,6 +48,7 @@ const useAuthStore = create((set, get) => ({
       localStorage.setItem('token', accessToken)
       localStorage.setItem('user', JSON.stringify(user))
       set({ user, token: accessToken, loading: false })
+      useSocialStore.getState().initializeSocialState(user._id)
       return true
     } catch (err) {
       set({ error: err.response?.data?.message || 'Login failed', loading: false })
@@ -66,6 +68,7 @@ const useAuthStore = create((set, get) => ({
       localStorage.setItem('token', accessToken)
       localStorage.setItem('user', JSON.stringify(user))
       set({ user, token: accessToken, loading: false })
+      useSocialStore.getState().initializeSocialState(user._id)
       return true
     } catch (err) {
       set({ error: err.response?.data?.message || 'Google login failed', loading: false })
@@ -76,7 +79,8 @@ const useAuthStore = create((set, get) => ({
   logout: () => {
     localStorage.removeItem('token')
     localStorage.removeItem('user')
-    set({ user: null, token: null, error: null })
+    useSocialStore.getState().reset()
+    set({ user: null, token: null, error: null, profileFetched: false })
   },
 
   forgotPassword: async (email) => {

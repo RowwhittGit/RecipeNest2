@@ -214,6 +214,17 @@ const unlikeRecipe = async (req, res, next) => {
   }
 };
 
+const getLikedRecipes = async (req, res, next) => {
+  try {
+    const userId = req.user.userId;
+    const likes = await Like.find({ userId });
+    const likedRecipeIds = likes.map(like => like.recipeId.toString());
+    return successResponse(res, 200, likedRecipeIds, null, "Liked recipes IDs");
+  } catch (error) {
+    next(error);
+  }
+};
+
 const likeComment = async (req, res, next) => {
   try {
     const { commentId } = req.params;
@@ -502,4 +513,5 @@ module.exports = {
   getSavedRecipes,
   fileDispute,
   fileCommentDispute,
+  getLikedRecipes,
 };
