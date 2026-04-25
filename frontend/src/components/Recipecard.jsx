@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FiClock, FiUsers, FiBookmark } from 'react-icons/fi';
 import { useRecipeStore } from '../store/recipeStore';
 
@@ -21,8 +22,9 @@ export default function RecipeCard({
   title, 
   time, 
   servings,
-  isSaved: initialIsSaved = false 
+  isSaved: initialIsSaved = false
 }) {
+  const navigate = useNavigate();
   const [isSaved, setIsSaved] = useState(initialIsSaved);
   const { saveRecipe, unsaveRecipe } = useRecipeStore();
 
@@ -47,7 +49,10 @@ export default function RecipeCard({
   };
 
   return (
-    <div className="bg-white rounded-md overflow-hidden border-[3px] border-[#2b3d63] shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer group flex flex-col p-2.5">
+    <div 
+      onClick={() => navigate(`/recipes/${_id}`)}
+      className="bg-white rounded-md overflow-hidden border-[3px] border-[#2b3d63] shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer group flex flex-col p-2.5"
+    >
       {/* Image Container */}
       <div className="relative h-48 sm:h-52 w-full bg-[#f4f4f4] overflow-hidden">
         {/* Bookmark Icon */}

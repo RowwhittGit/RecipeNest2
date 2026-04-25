@@ -8,6 +8,12 @@ export const fetchRecipesApi = (page = 1, limit = 10) => {
   });
 };
 
+export const getRecipeByIdApi = (recipeId) => {
+  return axios.get(`/api/recipes/${recipeId}`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+};
+
 export const saveRecipeApi = (recipeId) => {
   return axios.post(`/api/social/save/${recipeId}`, {}, {
     headers: { Authorization: `Bearer ${getToken()}` }
@@ -16,6 +22,30 @@ export const saveRecipeApi = (recipeId) => {
 
 export const unsaveRecipeApi = (recipeId) => {
   return axios.delete(`/api/social/unsave/${recipeId}`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+};
+
+export const likeRecipeApi = (recipeId) => {
+  return axios.post(`/api/social/like/${recipeId}`, {}, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+};
+
+export const unlikeRecipeApi = (recipeId) => {
+  return axios.delete(`/api/social/unlike/${recipeId}`, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+};
+
+export const followUserApi = (userId) => {
+  return axios.post(`/api/social/follow/${userId}`, {}, {
+    headers: { Authorization: `Bearer ${getToken()}` }
+  });
+};
+
+export const unfollowUserApi = (userId) => {
+  return axios.delete(`/api/social/unfollow/${userId}`, {
     headers: { Authorization: `Bearer ${getToken()}` }
   });
 };
