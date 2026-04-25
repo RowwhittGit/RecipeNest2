@@ -1,48 +1,100 @@
-export default function RecipeCard({ image, tag, tagColor, title, time, servings, rating, placeholder }) {
+import { useState } from 'react';
+import { FiClock, FiUsers, FiBookmark } from 'react-icons/fi';
+import { useRecipeStore } from '../store/recipeStore';
+
+const tagColors = {
+  'Asian': '#fdd228',
+  'Korean': '#fdd228',
+  'American': '#fdd228',
+  'Italian': '#fdd228',
+  'Mexican': '#fdd228',
+  'Japanese': '#fdd228',
+  'Spicy': '#fdd228',
+  'New': '#fdd228',
+  'Popular': '#fdd228',
+}
+
+export default function RecipeCard({ 
+  _id, 
+  image, 
+  tag, 
+  title, 
+  time, 
+  servings,
+  isSaved: initialIsSaved = false 
+}) {
+  const [isSaved, setIsSaved] = useState(initialIsSaved);
+  const { saveRecipe, unsaveRecipe } = useRecipeStore();
+
+  const tagBg = tagColors[tag] || '#fdd228';
+
+  const handleBookmark = async (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    
+    try {
+      if (isSaved) {
+        setIsSaved(false);
+        await unsaveRecipe(_id);
+      } else {
+        setIsSaved(true);
+        await saveRecipe(_id);
+      }
+    } catch {
+      // Revert optimistic update on error
+      setIsSaved(!isSaved);
+    }
+  };
+
   return (
-    <div className="bg-[#f0eee4] rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-      {/* Image area */}
-      <div className="relative h-52 flex items-center justify-center">
-        {/* Tag */}
-        <span
-          className="absolute top-4 right-4 z-10 rounded-full px-4 py-1.5 text-[#1e2d4a] font-bold text-sm"
-          style={{ backgroundColor: tagColor || '#f5c518' }}
+    <div className="bg-white rounded-md overflow-hidden border-[3px] border-[#2b3d63] shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer group flex flex-col p-2.5">
+      {/* Image Container */}
+      <div className="relative h-48 sm:h-52 w-full bg-[#f4f4f4] overflow-hidden">
+        {/* Bookmark Icon */}
+        <div 
+          onClick={handleBookmark}
+          className="absolute top-2 left-2 z-10 w-8 h-8 rounded-full bg-white flex items-center justify-center shadow-md cursor-pointer hover:bg-gray-100 transition-colors"
         >
-          {tag}
-        </span>
+          <FiBookmark className={`w-4 h-4 transition-colors ${isSaved ? 'fill-[#2b3d63] text-[#2b3d63]' : 'text-[#2b3d63]'}`} />
+        </div>
+
+        {/* Category Tag */}
+        {tag && (
+          <span
+            className="absolute top-2 right-2 z-10 rounded-full px-3 py-1 text-xs font-bold text-[#2b3d63] border-2 border-[#2b3d63]"
+            style={{ backgroundColor: tagBg }}
+          >
+            {tag}
+          </span>
+        )}
 
         {image ? (
-          <img src={image} alt={title} className="w-full h-full object-contain" />
+          <img
+            src={image}
+            alt={title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          />
         ) : (
-          <div className="flex items-center justify-center w-40 h-40 text-6xl">
-            {placeholder}
-          </div>
+          <div className="w-full h-full bg-[#f4f4f4] flex items-center justify-center text-4xl">🍽️</div>
         )}
       </div>
 
-      {/* Info */}
-      <div className="bg-white p-5">
-        <h3 className="text-[#1e2d4a] font-black text-base mb-3">{title}</h3>
-        <div className="flex items-center justify-between text-gray-400 text-sm">
-          <div className="flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <circle cx="12" cy="12" r="10" />
-              <path strokeLinecap="round" d="M12 6v6l4 2" />
-            </svg>
-            <span>{time}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-            <span>{servings} servings</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-[#f5c518]" fill="#f5c518" viewBox="0 0 24 24">
-              <path d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-            </svg>
-            <span className="text-[#1e2d4a] font-bold">{rating}</span>
-          </div>
+      {/* Info Container */}
+      <div className="pt-5 pb-2 px-2 text-center flex-1 flex flex-col justify-between bg-white">
+        <h3 className="text-[#2b3d63] font-bold text-[1.1rem] mb-4 leading-snug line-clamp-2">{title}</h3>
+        <div className="flex items-center justify-center gap-6 text-[#2b3d63]/70 text-sm">
+          {time && (
+            <div className="flex items-center gap-1.5">
+              <FiClock className="w-4 h-4 text-[#2b3d63]" />
+              <span>{time}</span>
+            </div>
+          )}
+          {servings && (
+            <div className="flex items-center gap-1.5">
+              <FiUsers className="w-4 h-4 text-[#2b3d63]" />
+              <span>{servings}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

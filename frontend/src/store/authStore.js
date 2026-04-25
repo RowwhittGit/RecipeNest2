@@ -1,11 +1,31 @@
 import { create } from 'zustand'
-import { registerUser, loginUser, googleLoginUser, forgotPasswordUser, resetPasswordUser } from '../api/authApi'
+import { registerUser, loginUser, googleLoginUser, forgotPasswordUser, resetPasswordUser, getUserProfile } from '../api/authApi'
+import toast from 'react-hot-toast'
 
-const useAuthStore = create((set) => ({
+const useAuthStore = create((set, get) => ({
   user: JSON.parse(localStorage.getItem('user')) || null,
   token: localStorage.getItem('token') || null,
   loading: false,
   error: null,
+  profileFetched: false,
+
+  fetchProfile: async () => {
+    const token = localStorage.getItem('token');
+    if (!token) return;
+    
+    // Only fetch once ideally
+    if (get().profileFetched) return;
+
+    try {
+      const res = await getUserProfile(token);
+      if (res.data?.data?.user) {
+        set({ user: res.data.data.user, profileFetched: true });
+      }
+    } catch {
+      toast.error('Failed to load user profile');
+      // If unauthorized, could clear token here, but keeping it simple as per instructions.
+    }
+  },
 
   register: async (data) => {
     set({ loading: true, error: null })
