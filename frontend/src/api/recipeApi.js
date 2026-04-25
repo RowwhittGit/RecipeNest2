@@ -81,3 +81,20 @@ export const getLikedRecipesApi = () => {
     headers: { Authorization: `Bearer ${getToken()}` }
   });
 };
+
+export const uploadImageApi = (file) => {
+  const formData = new FormData();
+  formData.append('hero', file);
+  return axios.post(`/api/recipes/images/upload`, formData, {
+    headers: {
+      Authorization: `Bearer ${getToken()}`,
+      'Content-Type': 'multipart/form-data',
+    },
+  });
+};
+
+export const createRecipeApi = (data) => {
+  return axios.post(`/api/recipes`, data, {
+    headers: { Authorization: `Bearer ${getToken()}` },
+  });
+};

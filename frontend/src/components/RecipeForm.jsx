@@ -1,6 +1,9 @@
 import { useState, useRef } from 'react';
 import { FiPlus } from 'react-icons/fi';
 import DynamicList from './DynamicList';
+import { uploadImageApi, createRecipeApi } from '../api/recipeApi';
+import toast from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 
 // ─── Helpers ───────────────────────────────────────────────────────────────────
 function SectionHeader({ title }) {
@@ -46,6 +49,8 @@ function normaliseSteps(raw = []) {
 // ─── RecipeForm ────────────────────────────────────────────────────────────────
 export default function RecipeForm({ initialData = null, submitLabel = 'Publish Recipe', onCancel }) {
   const imageInputRef = useRef(null);
+  const imageFileRef  = useRef(null); // stores the raw File for upload
+  const navigate = useNavigate();
 
   const [form, setForm] = useState({
     title:           initialData?.title           || '',
@@ -60,6 +65,7 @@ export default function RecipeForm({ initialData = null, submitLabel = 'Publish 
   const [ingredients, setIngredients] = useState(() => normaliseIngredients(initialData?.ingredients));
   const [steps,       setSteps]       = useState(() => normaliseSteps(initialData?.steps));
   const [imagePreview, setImagePreview] = useState(initialData?.mainImage || null);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleChange = (e) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
@@ -67,7 +73,53 @@ export default function RecipeForm({ initialData = null, submitLabel = 'Publish 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    imageFileRef.current = file;
     setImagePreview(URL.createObjectURL(file));
+  };
+
+  const handleSubmit = async (status) => {
+    // ── Validation ──────────────────────────────────────────────────────────
+    if (!form.title.trim()) { toast.error('Recipe title is required'); return; }
+    if (!form.cuisineType.trim()) { toast.error('Cuisine type is required'); return; }
+    if (!form.difficulty) { toast.error('Difficulty is required'); return; }
+    const filledIngredients = ingredients.filter(i => i.trim());
+    const filledSteps = steps.filter(s => s.trim());
+    if (!filledIngredients.length) { toast.error('Add at least one ingredient'); return; }
+    if (!filledSteps.length) { toast.error('Add at least one step'); return; }
+
+    setSubmitting(true);
+    try {
+      // ── Step 1: upload image if selected ──────────────────────────────────
+      let mainImage = '';
+      if (imageFileRef.current) {
+        const uploadRes = await uploadImageApi(imageFileRef.current);
+        mainImage = uploadRes.data.data.url;
+      }
+
+      // ── Step 2: build payload ─────────────────────────────────────────────
+      const payload = {
+        title:           form.title.trim(),
+        description:     form.description.trim(),
+        cuisineType:     form.cuisineType.trim(),
+        difficulty:      form.difficulty,
+        prepTime:        Number(form.prepTime) || 0,
+        cookTime:        Number(form.cookTime) || 0,
+        youtubeVideoUrl: form.youtubeVideoUrl.trim(),
+        mainImage,
+        status,
+        ingredients: filledIngredients.map((ingredient, i) => ({ order: i + 1, ingredient })),
+        steps:       filledSteps.map((instruction, i) => ({ order: i + 1, instruction })),
+      };
+
+      // ── Step 3: create recipe ─────────────────────────────────────────────
+      const res = await createRecipeApi(payload);
+      toast.success(status === 'published' ? 'Recipe published!' : 'Saved as draft!');
+      navigate(`/recipes/${res.data.data._id}`);
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Something went wrong');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -176,22 +228,27 @@ export default function RecipeForm({ initialData = null, submitLabel = 'Publish 
           <button
             type="button"
             onClick={onCancel}
-            className="px-6 py-2.5 rounded-full border-2 border-[#1e2d4a]/20 text-[#1e2d4a] font-bold text-sm hover:bg-[#1e2d4a]/5 transition-colors"
+            disabled={submitting}
+            className="px-6 py-2.5 rounded-full border-2 border-[#1e2d4a]/20 text-[#1e2d4a] font-bold text-sm hover:bg-[#1e2d4a]/5 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
         )}
         <button
           type="button"
-          className="px-6 py-2.5 rounded-full border-2 border-[#1e2d4a]/20 text-[#1e2d4a] font-bold text-sm hover:bg-[#1e2d4a]/5 transition-colors"
+          onClick={() => handleSubmit('draft')}
+          disabled={submitting}
+          className="px-6 py-2.5 rounded-full border-2 border-[#1e2d4a]/20 text-[#1e2d4a] font-bold text-sm hover:bg-[#1e2d4a]/5 transition-colors disabled:opacity-50"
         >
-          Save as Draft
+          {submitting ? 'Saving...' : 'Save as Draft'}
         </button>
         <button
           type="button"
-          className="px-6 py-2.5 rounded-full bg-[#f5c518] text-[#1e2d4a] font-black text-sm hover:opacity-90 transition-opacity shadow-sm"
+          onClick={() => handleSubmit('published')}
+          disabled={submitting}
+          className="px-6 py-2.5 rounded-full bg-[#f5c518] text-[#1e2d4a] font-black text-sm hover:opacity-90 transition-opacity shadow-sm disabled:opacity-50"
         >
-          {submitLabel}
+          {submitting ? 'Publishing...' : submitLabel}
         </button>
       </div>
 
