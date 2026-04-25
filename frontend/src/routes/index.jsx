@@ -11,6 +11,7 @@ import ChefsPage from '../pages/ChefsPage'
 import RecipeDetail from '../pages/RecipeDetail'
 import CreateRecipePage from '../pages/CreateRecipe'
 import EditRecipePage from '../pages/EditRecipe'
+import MyProfilePage from '../pages/MyProfile'
 
 /**
  * AppRoutes
@@ -31,6 +32,7 @@ export default function AppRoutes() {
 
       {/* ── Authenticated ──────────────────────────── */}
       <Route path="/home" element={<HomePage />} />
+      <Route path="/my-profile" element={<MyProfilePage />} />
       <Route path="/recipes/create" element={<CreateRecipePage />} />
       <Route path="/recipes/:id/edit" element={<EditRecipePage />} />
       <Route path="/recipes/:id" element={<RecipeDetail />} />

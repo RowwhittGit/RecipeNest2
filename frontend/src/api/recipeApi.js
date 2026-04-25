@@ -1,100 +1,84 @@
 import axios from 'axios';
+import { authFetch } from './axiosInstance';
 
-const getToken = () => localStorage.getItem('token') || '';
+const authHeader = (token) => ({ Authorization: `Bearer ${token}` });
 
-export const fetchRecipesApi = (page = 1, limit = 10, params = {}) => {
-  return axios.get(`/api/recipes`, {
-    params: { page, limit, ...params }
-  });
-};
+// ── Recipes (public) ──────────────────────────────────────────────────────────
+export const fetchRecipesApi = (page = 1, limit = 10, params = {}) =>
+  axios.get('/api/recipes', { params: { page, limit, ...params } });
 
-export const searchApi = (q) => {
-  return axios.get(`/api/search`, { params: { q } });
-};
+export const searchApi = (q) =>
+  axios.get('/api/search', { params: { q } });
 
-export const getCommentsApi = (recipeId) => {
-  return axios.get(`/api/social/comments/${recipeId}`);
-};
+export const getCommentsApi = (recipeId) =>
+  axios.get(`/api/social/comments/${recipeId}`);
 
-export const addCommentApi = (recipeId, body) => {
-  return axios.post(`/api/social/comments/${recipeId}`, body, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
+// ── Recipes (protected) ───────────────────────────────────────────────────────
+export const getRecipeByIdApi = (recipeId) =>
+  authFetch((token) => axios.get(`/api/recipes/${recipeId}`, { headers: authHeader(token) }));
 
-export const getRecipeByIdApi = (recipeId) => {
-  return axios.get(`/api/recipes/${recipeId}`, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
+export const createRecipeApi = (data) =>
+  authFetch((token) => axios.post('/api/recipes', data, { headers: authHeader(token) }));
 
-export const saveRecipeApi = (recipeId) => {
-  return axios.post(`/api/social/save/${recipeId}`, {}, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
-
-export const unsaveRecipeApi = (recipeId) => {
-  return axios.delete(`/api/social/unsave/${recipeId}`, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
-
-export const likeRecipeApi = (recipeId) => {
-  return axios.post(`/api/social/like/${recipeId}`, {}, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
-
-export const unlikeRecipeApi = (recipeId) => {
-  return axios.delete(`/api/social/unlike/${recipeId}`, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
-
-export const followUserApi = (userId) => {
-  return axios.post(`/api/social/follow/${userId}`, {}, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
-
-export const unfollowUserApi = (userId) => {
-  return axios.delete(`/api/social/unfollow/${userId}`, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
-
-export const getFollowingApi = (userId) => {
-  return axios.get(`/api/social/following/${userId}`, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
-
-export const getSavedRecipesApi = () => {
-  return axios.get(`/api/social/saved`, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
-
-export const getLikedRecipesApi = () => {
-  return axios.get(`/api/social/liked`, {
-    headers: { Authorization: `Bearer ${getToken()}` }
-  });
-};
+export const getMyRecipesApi = () =>
+  authFetch((token) => axios.get('/api/recipes/my/all', { headers: authHeader(token) }));
 
 export const uploadImageApi = (file) => {
   const formData = new FormData();
   formData.append('hero', file);
-  return axios.post(`/api/recipes/images/upload`, formData, {
-    headers: {
-      Authorization: `Bearer ${getToken()}`,
-      'Content-Type': 'multipart/form-data',
-    },
-  });
+  return authFetch((token) =>
+    axios.post('/api/recipes/images/upload', formData, {
+      headers: { ...authHeader(token), 'Content-Type': 'multipart/form-data' },
+    })
+  );
 };
 
-export const createRecipeApi = (data) => {
-  return axios.post(`/api/recipes`, data, {
-    headers: { Authorization: `Bearer ${getToken()}` },
-  });
-};
+// ── Profile ───────────────────────────────────────────────────────────────────
+export const getMyProfileApi = () =>
+  authFetch((token) => axios.get('/api/profiles/me', { headers: authHeader(token) }));
+
+// ── Social — Follow ───────────────────────────────────────────────────────────
+export const followUserApi = (userId) =>
+  authFetch((token) => axios.post(`/api/social/follow/${userId}`, {}, { headers: authHeader(token) }));
+
+export const unfollowUserApi = (userId) =>
+  authFetch((token) => axios.delete(`/api/social/unfollow/${userId}`, { headers: authHeader(token) }));
+
+export const getFollowingApi = (userId) =>
+  axios.get(`/api/social/following/${userId}`);
+
+export const getFollowersApi = (userId) =>
+  axios.get(`/api/social/followers/${userId}`);
+
+export const getFollowingListApi = (userId) =>
+  axios.get(`/api/social/following/${userId}`);
+
+// ── Social — Like ─────────────────────────────────────────────────────────────
+export const likeRecipeApi = (recipeId) =>
+  authFetch((token) => axios.post(`/api/social/like/${recipeId}`, {}, { headers: authHeader(token) }));
+
+export const unlikeRecipeApi = (recipeId) =>
+  authFetch((token) => axios.delete(`/api/social/unlike/${recipeId}`, { headers: authHeader(token) }));
+
+export const getLikedRecipesApi = () =>
+  authFetch((token) => axios.get('/api/social/liked', { headers: authHeader(token) }));
+
+export const getFullLikedRecipesApi = () =>
+  authFetch((token) => axios.get('/api/social/liked', { headers: authHeader(token) }));
+
+// ── Social — Save ─────────────────────────────────────────────────────────────
+export const saveRecipeApi = (recipeId) =>
+  authFetch((token) => axios.post(`/api/social/save/${recipeId}`, {}, { headers: authHeader(token) }));
+
+export const unsaveRecipeApi = (recipeId) =>
+  authFetch((token) => axios.delete(`/api/social/unsave/${recipeId}`, { headers: authHeader(token) }));
+
+export const getSavedRecipesApi = () =>
+  authFetch((token) => axios.get('/api/social/saved', { headers: authHeader(token) }));
+
+export const getFullSavedRecipesApi = () =>
+  authFetch((token) => axios.get('/api/social/saved', { headers: authHeader(token) }));
+
+// ── Social — Comments ─────────────────────────────────────────────────────────
+export const addCommentApi = (recipeId, body) =>
+  authFetch((token) => axios.post(`/api/social/comments/${recipeId}`, body, { headers: authHeader(token) }));

@@ -217,9 +217,15 @@ const unlikeRecipe = async (req, res, next) => {
 const getLikedRecipes = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    const likes = await Like.find({ userId, recipeId: { $exists: true } });
-    const likedRecipeIds = likes.map(like => like.recipeId.toString());
-    return successResponse(res, 200, likedRecipeIds, null, "Liked recipes IDs");
+    const likes = await Like.find({ userId, recipeId: { $exists: true } })
+      .populate({
+        path: "recipeId",
+        select: "title slug mainImage likeCount commentCount status prepTime cookTime",
+      })
+      .sort("-createdAt");
+
+    const recipes = likes.map((l) => l.recipeId).filter(Boolean);
+    return successResponse(res, 200, recipes, null, "Liked recipes");
   } catch (error) {
     next(error);
   }

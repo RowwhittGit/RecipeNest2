@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { registerUser, loginUser, googleLoginUser, forgotPasswordUser, resetPasswordUser, getUserProfile } from '../api/authApi'
 import { useSocialStore } from './socialStore'
-import toast from 'react-hot-toast'
 
 const useAuthStore = create((set, get) => ({
   user: JSON.parse(localStorage.getItem('user')) || null,
@@ -13,18 +12,14 @@ const useAuthStore = create((set, get) => ({
   fetchProfile: async () => {
     const token = localStorage.getItem('token');
     if (!token) return;
-    
-    // Only fetch once ideally
     if (get().profileFetched) return;
-
     try {
       const res = await getUserProfile(token);
       if (res.data?.data?.user) {
         set({ user: res.data.data.user, profileFetched: true });
       }
     } catch {
-      toast.error('Failed to load user profile');
-      // If unauthorized, could clear token here, but keeping it simple as per instructions.
+      // silent — token may be expired, user will be prompted on protected pages
     }
   },
 
@@ -44,8 +39,9 @@ const useAuthStore = create((set, get) => ({
     set({ loading: true, error: null })
     try {
       const res = await loginUser(data)
-      const { user, accessToken } = res.data.data
+      const { user, accessToken, refreshToken } = res.data.data
       localStorage.setItem('token', accessToken)
+      localStorage.setItem('refreshToken', refreshToken)
       localStorage.setItem('user', JSON.stringify(user))
       set({ user, token: accessToken, loading: false })
       useSocialStore.getState().initializeSocialState(user._id)
@@ -64,8 +60,9 @@ const useAuthStore = create((set, get) => ({
     set({ loading: true, error: null })
     try {
       const res = await googleLoginUser(idToken)
-      const { user, accessToken } = res.data.data
+      const { user, accessToken, refreshToken } = res.data.data
       localStorage.setItem('token', accessToken)
+      localStorage.setItem('refreshToken', refreshToken)
       localStorage.setItem('user', JSON.stringify(user))
       set({ user, token: accessToken, loading: false })
       useSocialStore.getState().initializeSocialState(user._id)
@@ -78,6 +75,7 @@ const useAuthStore = create((set, get) => ({
 
   logout: () => {
     localStorage.removeItem('token')
+    localStorage.removeItem('refreshToken')
     localStorage.removeItem('user')
     useSocialStore.getState().reset()
     set({ user: null, token: null, error: null, profileFetched: false })

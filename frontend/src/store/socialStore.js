@@ -47,9 +47,9 @@ export const useSocialStore = create((set, get) => ({
       const savedList = savedRes.data?.data || [];
       const validSavedIds = savedList.filter(Boolean).map(r => String(r._id));
 
-      // liked: array of recipeId strings
+      // liked: array of full recipe objects (now populated)
       const likedList = likedRes.data?.data || [];
-      const validLikedIds = likedList.filter(Boolean).map(id => String(id));
+      const validLikedIds = likedList.filter(Boolean).map(r => String(r._id || r));
 
       set({
         followingIds: new Set(validFollowingIds),

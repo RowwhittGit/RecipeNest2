@@ -67,7 +67,7 @@ export default function HomeNavbar() {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-[#f5c518] rounded-full" />
         </button>
         <button 
-          onClick={() => navigate('/profile')}
+          onClick={() => navigate('/my-profile')}
           className="w-9 h-9 rounded-full bg-[#1e2d4a] flex items-center justify-center hover:opacity-85 transition-opacity overflow-hidden"
         >
           {user && user.profileImage ? (
