@@ -264,13 +264,52 @@ const unlikeComment = async (req, res, next) => {
 
 // ─── COMMENT ───────────────────────────────────────────
 
+/**
+ * Build a nested comment tree from a flat array.
+ * Single DB fetch — no N+1.
+ */
+function buildCommentTree(flat) {
+  const map = {};
+  const roots = [];
+
+  flat.forEach((c) => {
+    map[c._id.toString()] = { ...c.toObject(), replies: [] };
+  });
+
+  flat.forEach((c) => {
+    if (c.parentComment) {
+      const parent = map[c.parentComment.toString()];
+      if (parent) parent.replies.push(map[c._id.toString()]);
+    } else {
+      roots.push(map[c._id.toString()]);
+    }
+  });
+
+  return roots;
+}
+
 const addComment = async (req, res, next) => {
   try {
     const { recipeId } = req.params;
-    const { text } = req.body;
+    const { text, parentComment } = req.body;
 
     if (!text || !text.trim()) {
       return errorResponse(res, 400, "Comment text is required", "VALIDATION_ERROR");
+    }
+
+    let depth = 0;
+    if (parentComment) {
+      const parent = await Comment.findById(parentComment).lean();
+      if (!parent) {
+        return errorResponse(res, 404, "Parent comment not found", "NOT_FOUND");
+      }
+      if (parent.recipeId.toString() !== recipeId) {
+        return errorResponse(res, 400, "Parent comment does not belong to this recipe", "VALIDATION_ERROR");
+      }
+      if (parent.depth >= Comment.MAX_DEPTH) {
+        return errorResponse(res, 400, `Maximum reply depth of ${Comment.MAX_DEPTH} reached`, "MAX_DEPTH_REACHED");
+      }
+      depth = parent.depth + 1;
     }
 
     // Double Submit Protection
@@ -278,9 +317,8 @@ const addComment = async (req, res, next) => {
       userId: req.user.userId,
       recipeId,
       text: text.trim(),
-      createdAt: { $gte: new Date(Date.now() - 10 * 1000) } // Last 10 seconds
+      createdAt: { $gte: new Date(Date.now() - 10 * 1000) },
     });
-
     if (recentDuplicate) {
       return errorResponse(res, 400, "Duplicate comment detected. Please wait.", "DOUBLE_SUBMIT");
     }
@@ -288,24 +326,33 @@ const addComment = async (req, res, next) => {
     const comment = await Comment.create({
       userId: req.user.userId,
       recipeId,
+      parentComment: parentComment || null,
+      depth,
       text: text.trim(),
     });
 
-    const recipe = await Recipe.findByIdAndUpdate(recipeId, { $inc: { commentCount: 1 } });
+    // Only increment recipe commentCount for top-level comments
+    const recipe = await Recipe.findByIdAndUpdate(
+      recipeId,
+      parentComment ? {} : { $inc: { commentCount: 1 } },
+      { new: false }
+    );
 
-    // Notify Author
-    const actor = await User.findById(req.user.userId);
-    await createNotification({
-      recipientId: recipe.authorId,
-      actorId: req.user.userId,
-      type: "COMMENT",
-      entityId: recipeId,
-      entityModel: "Recipe",
-      message: `${actor.firstName} commented on your recipe: ${recipe.title}`
-    });
+    // Notify recipe author (only for top-level comments to avoid spam)
+    if (!parentComment) {
+      const actor = await User.findById(req.user.userId);
+      await createNotification({
+        recipientId: recipe.authorId,
+        actorId: req.user.userId,
+        type: "COMMENT",
+        entityId: recipeId,
+        entityModel: "Recipe",
+        message: `${actor.firstName} commented on your recipe: ${recipe.title}`,
+      });
+    }
 
     const populated = await Comment.findById(comment._id)
-      .populate("userId", "firstName lastName username");
+      .populate("userId", "firstName lastName username profileImage");
 
     return successResponse(res, 201, populated, null, "Comment added");
   } catch (error) {
@@ -316,25 +363,30 @@ const addComment = async (req, res, next) => {
 const getComments = async (req, res, next) => {
   try {
     const { recipeId } = req.params;
-    const { sortBy = "newest", page = 1, limit = 20 } = req.query;
-    const skip = (Number(page) - 1) * Number(limit);
+    const { sortBy = "newest" } = req.query;
 
-    // Determine sort order
-    let sortCriteria = "-createdAt"; // Default newest
-    if (sortBy === "oldest") sortCriteria = "createdAt";
-    if (sortBy === "popular") sortCriteria = "-likeCount -createdAt";
+    let sortCriteria = { createdAt: -1 };
+    if (sortBy === "oldest") sortCriteria = { createdAt: 1 };
+    if (sortBy === "popular") sortCriteria = { likeCount: -1, createdAt: -1 };
 
-    const total = await Comment.countDocuments({ recipeId });
-    const comments = await Comment.find({ recipeId })
+    // Single query — fetch all comments for the recipe, build tree in memory
+    const allComments = await Comment.find({ recipeId })
       .sort(sortCriteria)
-      .skip(skip)
-      .limit(Number(limit))
-      .populate("userId", "firstName lastName username profileImage");
+      .populate("userId", "firstName lastName username profileImage")
+      .lean({ virtuals: false });
 
-    return successResponse(res, 200, comments,
-      { page: Number(page), limit: Number(limit), total, pages: Math.ceil(total / Number(limit)) },
-      "Comments list"
-    );
+    // Re-attach toObject compatibility for buildCommentTree
+    const withToObject = allComments.map((c) => ({
+      toObject: () => c,
+      ...c,
+      _id: c._id,
+      parentComment: c.parentComment,
+    }));
+
+    const tree = buildCommentTree(withToObject);
+    const total = allComments.filter((c) => !c.parentComment).length;
+
+    return successResponse(res, 200, tree, { total }, "Comments list");
   } catch (error) {
     next(error);
   }
@@ -349,13 +401,26 @@ const deleteComment = async (req, res, next) => {
       return errorResponse(res, 404, "Comment not found", "NOT_FOUND");
     }
 
-    // Only the comment author or an admin can delete
     if (comment.userId.toString() !== req.user.userId && req.user.role !== "admin") {
       return errorResponse(res, 403, "Not authorized to delete this comment", "FORBIDDEN");
     }
 
-    await Comment.findByIdAndDelete(commentId);
-    await Recipe.findByIdAndUpdate(comment.recipeId, { $inc: { commentCount: -1 } });
+    // Cascade delete all replies (any depth) under this comment
+    const toDelete = [comment._id];
+    let cursor = [comment._id];
+    while (cursor.length) {
+      const children = await Comment.find({ parentComment: { $in: cursor } }).select("_id").lean();
+      const childIds = children.map((c) => c._id);
+      toDelete.push(...childIds);
+      cursor = childIds;
+    }
+
+    await Comment.deleteMany({ _id: { $in: toDelete } });
+
+    // Only decrement for top-level comment deletion
+    if (!comment.parentComment) {
+      await Recipe.findByIdAndUpdate(comment.recipeId, { $inc: { commentCount: -1 } });
+    }
 
     return successResponse(res, 200, null, null, "Comment deleted");
   } catch (error) {

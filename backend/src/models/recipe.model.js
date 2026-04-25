@@ -31,6 +31,22 @@ const RecipeSchema = new mongoose.Schema(
     ingredients: [IngredientSchema],
     steps: [StepSchema],
     mainImage: { type: String, default: "" },
+    youtubeVideoUrl: {
+      type: String,
+      default: "",
+      validate: {
+        validator(v) {
+          if (!v) return true; // optional
+          try {
+            const url = new URL(v);
+            return url.hostname === "www.youtube.com" || url.hostname === "youtu.be";
+          } catch {
+            return false;
+          }
+        },
+        message: "youtubeVideoUrl must be a valid YouTube URL",
+      },
+    },
     status: {
       type: String,
       enum: ["draft", "published"],

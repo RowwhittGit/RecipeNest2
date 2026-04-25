@@ -21,9 +21,9 @@ router.post("/like-comment/:commentId", verifyToken, controller.likeComment);
 router.delete("/unlike-comment/:commentId", verifyToken, controller.unlikeComment);
 
 // Comment
-router.post("/comments/:recipeId", verifyToken, controller.addComment);
-router.get("/comments/:recipeId", controller.getComments);
-router.delete("/comments/:commentId", verifyToken, controller.deleteComment);
+router.post("/comments/:recipeId", verifyToken, controller.addComment);         // top-level or reply (pass parentComment in body)
+router.get("/comments/:recipeId", controller.getComments);                       // returns nested tree
+router.delete("/comments/:commentId", verifyToken, controller.deleteComment);    // cascades to replies
 
 // Save / Bookmark
 router.post("/save/:recipeId", verifyToken, controller.saveRecipe);

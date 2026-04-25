@@ -39,7 +39,8 @@ const UserSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-UserSchema.index({ resetToken: 1 });
+UserSchema.index({ resetToken: 1 }); // kept for backward compat — field is resetPasswordToken
+UserSchema.index({ firstName: "text", lastName: "text", username: "text" });
 
 UserSchema.pre("save", async function hashPasswordIfNeeded() {
   if (!this.isModified("passwordHash")) {
