@@ -7,6 +7,7 @@ import VerifyNoticePage from '../pages/VerifyNotice'
 import VerifyEmailPage from '../pages/VerifyEmail'
 import ForgotPasswordPage from '../pages/ForgotPassword'
 import ResetPasswordPage from '../pages/ResetPassword'
+import ChefsPage from '../pages/ChefsPage'
 
 /**
  * AppRoutes
@@ -27,6 +28,7 @@ export default function AppRoutes() {
 
       {/* ── Authenticated ──────────────────────────── */}
       <Route path="/home" element={<HomePage />} />
+      <Route path="/chefs" element={<ChefsPage />} />
 
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
