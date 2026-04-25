@@ -37,6 +37,15 @@ export const uploadImageApi = (file) => {
 export const getMyProfileApi = () =>
   authFetch((token) => axios.get('/api/profiles/me', { headers: authHeader(token) }));
 
+export const updateProfileApi = (data) =>
+  authFetch((token) => axios.put('/api/profiles/me', data, { headers: authHeader(token) }));
+
+export const getUserProfileApi = (userId) =>
+  authFetch((token) => axios.get(`/api/profiles/${userId}`, { headers: authHeader(token) }));
+
+export const getRecipesByUserApi = (userId) =>
+  authFetch((token) => axios.get(`/api/recipes/user/${userId}`, { headers: authHeader(token) }));
+
 // ── Social — Follow ───────────────────────────────────────────────────────────
 export const followUserApi = (userId) =>
   authFetch((token) => axios.post(`/api/social/follow/${userId}`, {}, { headers: authHeader(token) }));
