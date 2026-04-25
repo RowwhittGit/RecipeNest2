@@ -327,7 +327,36 @@ export default function RecipeDetail() {
                 </div>
               )}
 
-              {/* Engagement */}
+              {/* YouTube Video */}
+              {recipe.youtubeVideoUrl && (() => {
+                try {
+                  const url = new URL(recipe.youtubeVideoUrl);
+                  const videoId = url.hostname === 'youtu.be'
+                    ? url.pathname.slice(1)
+                    : url.searchParams.get('v');
+                  if (!videoId) return null;
+                  return (
+                    <div className="mb-8">
+                      <h2 className="text-xl font-bold text-[#2b3d63] mb-4 flex items-center gap-3">
+                        <span className="w-1.5 h-6 bg-[#fdd228] rounded" />
+                        Video
+                      </h2>
+                      <div className="relative w-full rounded-xl overflow-hidden border border-[#2b3d63]/10" style={{ paddingBottom: '56.25%' }}>
+                        <iframe
+                          src={`https://www.youtube.com/embed/${videoId}`}
+                          title="Recipe video"
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                          allowFullScreen
+                          className="absolute inset-0 w-full h-full"
+                        />
+                      </div>
+                    </div>
+                  );
+                } catch {
+                  return null;
+                }
+              })()}
+
               <div className="flex items-center gap-4 mb-10 pb-8 border-b border-[#2b3d63]/10">
                 <button
                   onClick={handleLike}

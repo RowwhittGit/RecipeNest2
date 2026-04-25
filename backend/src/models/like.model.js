@@ -9,7 +9,8 @@ const LikeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// Ensure one like per user per item
+// sparse: true means the index entry is only created when the field EXISTS in the document.
+// Never store null for recipeId/commentId — omit the field entirely so sparse works correctly.
 LikeSchema.index({ userId: 1, recipeId: 1 }, { unique: true, sparse: true });
 LikeSchema.index({ userId: 1, commentId: 1 }, { unique: true, sparse: true });
 
