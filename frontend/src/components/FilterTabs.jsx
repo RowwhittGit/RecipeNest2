@@ -6,9 +6,9 @@ export default function FilterTabs() {
   const [active, setActive] = useState('All Recipes')
 
   return (
-    <div className="bg-white sticky top-[61px] z-40 border-b border-black/5">
-      <div className="max-w-6xl mx-auto px-4 md:px-6">
-        <div className="flex items-center gap-1.5 overflow-x-auto py-3 scrollbar-hide">
+    <div className="bg-[#f5f5f0]/95 backdrop-blur-sm sticky top-[73px] z-40 border-b border-[#1e2d4a]/10">
+      <div className="max-w-7xl mx-auto px-4 md:px-6">
+        <div className="flex items-center gap-2 overflow-x-auto py-3 scrollbar-hide">
           {tabs.map((tab) => (
             <button
               key={tab}
@@ -16,7 +16,7 @@ export default function FilterTabs() {
               className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition-all flex-shrink-0 ${
                 active === tab
                   ? 'bg-[#1e2d4a] text-white'
-                  : 'bg-[#f5f3e8] text-[#1e2d4a] hover:bg-[#e8e5d5]'
+                  : 'bg-white text-[#1e2d4a] hover:bg-gray-50 border border-[#1e2d4a]/15'
               }`}
             >
               {tab}
