@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import RecipeCard from './Recipecard'
 import octopus2 from '../images/octopus2.png'
 import cakebin from '../images/cakebin.png'
@@ -64,6 +65,8 @@ const recipes = [
 ]
 
 export default function FeaturedRecipes() {
+  const navigate = useNavigate();
+
   return (
     <section className="bg-[#f5f3e8] py-12 md:py-20 px-4 md:px-6">
       <div className="max-w-6xl mx-auto">
@@ -79,7 +82,7 @@ export default function FeaturedRecipes() {
         </div>
 
         <div className="flex justify-center mt-12">
-          <button className="bg-[#f5c518] text-[#1e2d4a] font-black text-base rounded-full px-8 py-3.5 hover:opacity-90 transition-opacity">
+          <button onClick={() => navigate('/login')} className="bg-[#f5c518] text-[#1e2d4a] font-black text-base rounded-full px-8 py-3.5 hover:opacity-90 transition-opacity">
             View All Recipes
           </button>
         </div>

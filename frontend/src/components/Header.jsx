@@ -1,6 +1,9 @@
+import { useNavigate } from 'react-router-dom'
 import logoSmall from '../images/logo_small.png'
 
 export default function Header() {
+  const navigate = useNavigate();
+
   return (
     <header className="w-full flex items-center justify-between px-4 md:px-10 py-4 bg-[#f5f3e8] sticky top-0 z-50">
       {/* Logo */}
@@ -20,8 +23,8 @@ export default function Header() {
 
       {/* Actions */}
       <div className="flex items-center gap-3">
-        <button className="text-[#1e2d4a] font-bold text-sm hover:opacity-70 transition-opacity">Log in</button>
-        <button className="bg-[#1e2d4a] text-white font-bold text-sm rounded-full px-5 py-2.5 hover:opacity-85 transition-opacity">
+        <button onClick={() => navigate('/login')} className="text-[#1e2d4a] font-bold text-sm hover:opacity-70 transition-opacity">Log in</button>
+        <button onClick={() => navigate('/register')} className="bg-[#1e2d4a] text-white font-bold text-sm rounded-full px-5 py-2.5 hover:opacity-85 transition-opacity">
           Sign Up
         </button>
       </div>
