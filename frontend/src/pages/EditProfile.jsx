@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { Toaster } from 'react-hot-toast';
 import HomeNavbar from '../components/HomeNavbar';
-import { getMyProfileApi, updateProfileApi } from '../api/recipeApi';
+import { getMyProfileApi, updateProfileApi, uploadAvatarApi } from '../api/recipeApi';
 
 const BIO_MAX = 150;
 
@@ -39,6 +39,8 @@ export default function EditProfilePage() {
   });
 
   const [avatarPreview, setAvatarPreview] = useState(null);
+  const [uploadedAvatarUrl, setUploadedAvatarUrl] = useState(null); // cloudinary URL after upload
+  const [avatarUploading, setAvatarUploading] = useState(false);
   const [originalUsername, setOriginalUsername] = useState('');
 
   // ── Fetch current profile to pre-fill ────────────────────────────────────
@@ -63,10 +65,23 @@ export default function EditProfilePage() {
   const handleChange = (e) =>
     setForm(f => ({ ...f, [e.target.name]: e.target.value }));
 
-  const handleAvatarChange = (e) => {
+  const handleAvatarChange = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    // Show local preview immediately
     setAvatarPreview(URL.createObjectURL(file));
+    // Upload to Cloudinary
+    setAvatarUploading(true);
+    try {
+      const res = await uploadAvatarApi(file);
+      setUploadedAvatarUrl(res.data.data.profileImage);
+      toast.success('Photo uploaded!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to upload photo');
+      setAvatarPreview(null); // revert preview on failure
+    } finally {
+      setAvatarUploading(false);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -75,15 +90,23 @@ export default function EditProfilePage() {
       toast.error('First name, last name and username are required');
       return;
     }
+    if (avatarUploading) {
+      toast.error('Please wait for the photo to finish uploading');
+      return;
+    }
     setSubmitting(true);
     try {
-      await updateProfileApi({
+      const payload = {
         firstName: form.firstName.trim(),
         lastName:  form.lastName.trim(),
         username:  form.username.trim(),
         email:     form.email.trim(),
         biography: form.biography.trim(),
-      });
+      };
+      // Include the cloudinary URL if a new avatar was uploaded
+      if (uploadedAvatarUrl) payload.profileImage = uploadedAvatarUrl;
+
+      await updateProfileApi(payload);
       toast.success('Profile updated!');
       navigate('/my-profile');
     } catch (err) {
@@ -124,14 +147,19 @@ export default function EditProfilePage() {
               <div className="flex items-center gap-5 py-5 border-b border-[#1e2d4a]/8">
                 <button
                   type="button"
-                  onClick={() => avatarInputRef.current?.click()}
-                  className="w-14 h-14 rounded-full border-2 border-[#1e2d4a] overflow-hidden flex-shrink-0 hover:opacity-80 transition-opacity"
+                  onClick={() => !avatarUploading && avatarInputRef.current?.click()}
+                  className="w-14 h-14 rounded-full border-2 border-[#1e2d4a] overflow-hidden flex-shrink-0 hover:opacity-80 transition-opacity relative"
                 >
                   {avatarPreview ? (
                     <img src={avatarPreview} alt="avatar" className="w-full h-full object-cover" />
                   ) : (
                     <div className="w-full h-full bg-[#1e2d4a] flex items-center justify-center text-white text-lg font-black">
                       {form.username?.[0]?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                  {avatarUploading && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="w-5 h-5 border-2 border-white/40 border-t-white rounded-full animate-spin" />
                     </div>
                   )}
                 </button>
@@ -218,10 +246,10 @@ export default function EditProfilePage() {
               <div className="flex items-center gap-4 py-5">
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || avatarUploading}
                   className="px-8 py-2.5 bg-[#1e2d4a] text-white font-bold text-sm rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  {submitting ? 'Saving...' : 'Submit'}
+                  {submitting ? 'Saving...' : avatarUploading ? 'Uploading photo...' : 'Submit'}
                 </button>
                 <button
                   type="button"

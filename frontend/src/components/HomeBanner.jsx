@@ -1,20 +1,11 @@
-import { useState } from 'react'
 import homeBanner2 from '../images/HomeBanner2.png'
 import tomato from '../images/tomato.png'
 import greenHerb from '../images/green_herb.png'
 import redChilly from '../images/red_chilly.png'
 import lemon from '../images/lemon.png'
 import sunflower from '../images/sunflower.png'
-import { useRecipeStore } from '../store/recipeStore'
 
 export default function HomeBanner() {
-  const [input, setInput] = useState('');
-  const { search } = useRecipeStore();
-
-  const handleSearch = (e) => {
-    e.preventDefault();
-    search(input);
-  };
 
   return (
     <section
@@ -32,24 +23,9 @@ export default function HomeBanner() {
           <span className="text-[#1e2d4a]">Explore Our </span>
           <span className="text-[#f5c518]">Recipes</span>
         </h1>
-        <p className="text-[#1e2d4a]/80 font-medium text-sm md:text-base mb-6">
+        <p className="text-[#1e2d4a]/80 font-medium text-sm md:text-base">
           Find the perfect dish for any occasion
         </p>
-        <form onSubmit={handleSearch} className="flex items-center bg-white rounded-full px-4 py-2.5 shadow-md max-w-lg mx-auto border-2 border-[#1e2d4a]/10">
-          <input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Search recipes, ingredients..."
-            className="flex-1 outline-none text-sm text-[#1e2d4a] placeholder-[#1e2d4a]/40 bg-transparent"
-          />
-          <button type="submit" className="ml-2 bg-[#f5c518] rounded-full w-8 h-8 flex items-center justify-center hover:opacity-90 transition-opacity flex-shrink-0">
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-[#1e2d4a]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <circle cx="11" cy="11" r="8" />
-              <path d="m21 21-4.35-4.35" />
-            </svg>
-          </button>
-        </form>
       </div>
     </section>
   )

@@ -46,6 +46,16 @@ export const getMyProfileApi = () =>
 export const updateProfileApi = (data) =>
   authFetch((token) => axios.put('/api/profiles/me', data, { headers: authHeader(token) }));
 
+export const uploadAvatarApi = (file) => {
+  const formData = new FormData();
+  formData.append('avatar', file);
+  return authFetch((token) =>
+    axios.post('/api/profiles/me/avatar', formData, {
+      headers: { ...authHeader(token), 'Content-Type': 'multipart/form-data' },
+    })
+  );
+};
+
 export const getUserProfileApi = (userId) =>
   authFetch((token) => axios.get(`/api/profiles/${userId}`, { headers: authHeader(token) }));
 

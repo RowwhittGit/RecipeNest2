@@ -30,7 +30,7 @@ export default function HomeNavbar() {
   return (
     <header className="w-full flex items-center justify-between px-4 md:px-10 py-4 bg-white/95 backdrop-blur-sm sticky top-0 z-50 border-b-2 border-[#1e2d4a]/10 shadow-sm">
       {/* Logo */}
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-2.5 cursor-pointer" onClick={() => navigate('/home')}>
         <img src={logoSmall} alt="recipeNest logo" className="w-9 h-9 object-contain" />
         <span className="text-[#1e2d4a] font-black text-xl tracking-tight">recipeNest</span>
       </div>

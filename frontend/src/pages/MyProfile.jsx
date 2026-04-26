@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FiGrid, FiBookmark, FiHeart, FiSettings } from 'react-icons/fi';
+import { FiGrid, FiBookmark, FiHeart, FiSettings, FiLogOut } from 'react-icons/fi';
 import HomeNavbar from '../components/HomeNavbar';
 import Footer from '../components/Footer';
 import { ProfileAvatar, ProfileStatBlock, RecipeGridItem, UserListModal } from '../components/ProfileComponents';
+import useAuthStore from '../store/authStore';
 import {
   getMyProfileApi,
   getMyRecipesApi,
@@ -21,6 +22,7 @@ const TABS = [
 
 export default function MyProfilePage() {
   const navigate = useNavigate();
+  const { logout } = useAuthStore();
 
   const [user, setUser]   = useState(null);
   const [stats, setStats] = useState(null);
@@ -37,6 +39,31 @@ export default function MyProfilePage() {
   const [modal, setModal]           = useState(null);
   const [modalUsers, setModalUsers] = useState([]);
   const [modalLoading, setModalLoading] = useState(false);
+
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const settingsRef = useRef(null);
+
+  // Close settings dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e) => {
+      if (settingsRef.current && !settingsRef.current.contains(e.target)) {
+        setSettingsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const handleLogout = () => {
+    setSettingsOpen(false);
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   useEffect(() => {
     getMyProfileApi()
@@ -134,6 +161,30 @@ export default function MyProfilePage() {
         />
       )}
 
+      {/* Logout confirmation dialog */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6 text-center">
+            <p className="font-black text-[#1e2d4a] text-base mb-1">Log out?</p>
+            <p className="text-[#1e2d4a]/50 text-sm mb-6">Are you sure you want to log out?</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2.5 border-2 border-[#1e2d4a]/20 text-[#1e2d4a] font-bold text-sm rounded-lg hover:bg-[#1e2d4a]/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 py-2.5 bg-red-500 text-white font-bold text-sm rounded-lg hover:bg-red-600 transition-colors"
+              >
+                Log Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <main className="flex-1 py-8 px-4">
         <div className="max-w-3xl mx-auto">
 
@@ -150,9 +201,25 @@ export default function MyProfilePage() {
                     <button onClick={() => navigate('/recipes/create')} className="px-4 py-1.5 bg-[#f5c518] text-[#1e2d4a] font-bold text-xs rounded-md hover:opacity-90 transition-opacity border-2 border-[#f5c518]">
                       + Create
                     </button>
-                    <button className="w-7 h-7 flex items-center justify-center text-[#1e2d4a]/40 hover:text-[#1e2d4a] transition-colors">
-                      <FiSettings className="w-4 h-4" />
-                    </button>
+                    <div ref={settingsRef} className="relative">
+                      <button
+                        onClick={() => setSettingsOpen(o => !o)}
+                        className="w-7 h-7 flex items-center justify-center text-[#1e2d4a]/40 hover:text-[#1e2d4a] transition-colors"
+                      >
+                        <FiSettings className="w-4 h-4" />
+                      </button>
+                      {settingsOpen && (
+                        <div className="absolute right-0 top-9 bg-white rounded-xl shadow-lg border border-[#1e2d4a]/10 py-1 w-36 z-10">
+                          <button
+                            onClick={handleLogout}
+                            className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-bold text-red-500 hover:bg-red-50 transition-colors"
+                          >
+                            <FiLogOut className="w-4 h-4" />
+                            Log Out
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center justify-center sm:justify-start gap-8 mb-3">
