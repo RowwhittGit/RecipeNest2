@@ -62,7 +62,7 @@ export default function MyProfilePage() {
 
   const confirmLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/');
   };
 
   useEffect(() => {

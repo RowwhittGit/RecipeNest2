@@ -107,3 +107,7 @@ export const getFullSavedRecipesApi = () =>
 // ── Social — Comments ─────────────────────────────────────────────────────────
 export const addCommentApi = (recipeId, body) =>
   authFetch((token) => axios.post(`/api/social/comments/${recipeId}`, body, { headers: authHeader(token) }));
+
+// ── Chefs ─────────────────────────────────────────────────────────────────────
+export const getChefsApi = () =>
+  authFetch((token) => axios.get('/api/users/chefs', { headers: authHeader(token) }));

@@ -13,6 +13,7 @@ const adminRoutes = require("./routes/admin.routes");
 const analyticsRoutes = require("./routes/analytics.routes");
 const searchRoutes = require("./routes/search.routes");
 const notificationRoutes = require("./routes/notification.routes");
+const userRoutes = require("./routes/user.routes");
 const sanitise = require("./middleware/sanitise");
 const { generalRateLimiter } = require("./middleware/rateLimiter");
 const errorHandler = require("./middleware/errorHandler");
@@ -64,6 +65,7 @@ app.use("/api/admin", adminRoutes);
 app.use("/api/analytics", analyticsRoutes);
 app.use("/api/search", searchRoutes);
 app.use("/api/notifications", notificationRoutes);
+app.use("/api/users", userRoutes);
 
 // Static files for uploads
 app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
