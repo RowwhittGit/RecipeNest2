@@ -1,11 +1,10 @@
 const express = require("express");
 const controller = require("../controllers/admin.controller");
-const verifyToken = require("../middleware/auth");
-const verifyAdmin = require("../middleware/verifyAdmin");
+const adminAuth = require("../middleware/adminAuth.middleware");
 
 const router = express.Router();
 
-router.use(verifyToken, verifyAdmin);
+router.use(adminAuth);
 
 router.get("/users", controller.listUsers);
 router.get("/users/:userId", controller.getUserById);

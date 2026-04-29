@@ -15,6 +15,7 @@ import MyProfilePage from '../pages/MyProfile'
 import EditProfilePage from '../pages/EditProfile'
 import ViewProfilePage from '../pages/ViewProfile'
 import ChefListPage from '../pages/ChefList'
+import AdminRoutes from '../admin/routes/AdminRoutes'
 
 /**
  * AppRoutes
@@ -50,6 +51,9 @@ export default function AppRoutes() {
       <Route path="/verify-email/:token" element={<VerifyEmailPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       <Route path="/reset-password/:token" element={<ResetPasswordPage />} />
+
+      {/* ── Admin Portal ───────────────────────────── */}
+      <Route path="/admin/*" element={<AdminRoutes />} />
 
       {/* ── Catch-all ──────────────────────────────── */}
       <Route path="*" element={<Navigate to="/" replace />} />
